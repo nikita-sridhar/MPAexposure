@@ -1,0 +1,92 @@
+---
+title: "MPA Exposure Analysis"
+format: 
+  html:
+    code-fold: true
+editor: visual
+params:
+  projection: "IPSL"
+---
+
+```{r}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+
+Code to characterize exposure of California MPAs to future pH, DO, and temperature using IPSL model predictions. Note: this setup is only for one projection (IPSL). Change every occurence of "IPSL" to "GFDL" or "HADLEY" in this report to do same for diff projection.
+
+## Setup
+
+Load libraries and read data. Convert DO units and filter for years 2090-2100.
+
+```{r}
+#| label: libraries
+#| message: false
+
+library(tidyverse)
+library(lubridate)
+library(data.table)
+library(factoextra)
+library(broom)
+library(cowplot)
+library(respR)
+library(here)
+library(lattice)
+library(RcppRoll)
+library(RColorBrewer)
+library(gplots)
+library(ggpmisc)
+library(quarto)
+```
+
+```{r}
+#| label: load_data
+#| message: false
+
+#Read mpa data, convert DO units, add a column for time period, and one for difference between mid/end cen and historic.
+IPSL <- read_csv(here("data/processeddata/model/IPSLmpa.csv"))
+GFDL <- read_csv(here("data/processeddata/model/GFDLmpa.csv"))
+
+mpa <- params$projection %>%
+  mutate(DO_mmolL = DO_surf/1000,
+         DO_mgL = convert_DO(DO_mmolL, from = "mmol/L", to = "mg/L")) %>% 
+  filter(Year <= 2020|
+         Year >= 2040 & Year <= 2060|
+         Year >= 2080 & Year <= 2100) %>%
+  mutate(period = case_when((Year <= 2020) ~ "historic", 
+                           (Year %in% c(2040:2060)) ~ "midcen",
+                           (Year %in% c(2080:2100)) ~ "endcen")) %>%
+  select(-T_bot, -DO_bot, -pH_bot,-DO_surf,-DO_mmolL) 
+mpa$File <- substr(mpa$File, 1, nchar(mpa$File)-4)
+
+```
+
+```{r}
+#| label: regions
+#| message: false
+#add regions here!
+mpa_centroids<- read_csv(here("data/rawdata/MPA_polygons.csv"))
+mpa_centroids$File <- sub("^", "tphdo_mpa_", mpa_centroids$OBJECTID )
+
+mpa_centroids <- mpa_centroids %>%
+  mutate(region = ifelse(degy >= 37.29, "norca", 
+                         ifelse(degy > 34.8, "centralca", 
+                                ifelse("degy" < 34.274 & "degx" < -119.220, "channelisl" , 
+                                       "socal"))))
+
+channel <- c("Anacapa Island FMCA", "Anacapa Island FMR", "Anacapa Island SMCA", "Anacapa Island SMR", "Anacapa Island Special Closure", 
+             "Arrow Point to Lion Head Point SMCA", "Begg Rock SMR", "Blue Cavern Offshore SMCA", "Blue Cavern Onshore SMCA (No-Take)", 
+             "Carrington Point SMR", "Casino Point SMCA (No-Take)", "Cat Harbor SMCA", "Farnsworth Offshore SMCA", "Farnsworth Onshore SMCA", 
+             "Footprint FMR", "Footprint SMR", "Gull Island FMR", "Gull Island SMR", "Harris Point FMR", "Harris Point SMR", "Judith Rock SMR", 
+             "Long Point SMR", "Lover’s Cove SMCA", "Painted Cave SMCA", "Richardson Rock FMR", "Richardson Rock SMR", "San Miguel Island Special Closure", 
+             "Santa Barbara Island FMR", "Santa Barbara Island SMR", "Scorpion FMR", "Scorpion SMR", "Skunk Point SMR", "South Point FMR", "South Point SMR")
+
+mpa_centroids$region[mpa_centroids$NAME %in% channel]  <- "channel" 
+mpa <- merge(mpa, mpa_centroids,  by = "File")
+
+mpa_historic <- mpa %>%
+  filter(period == "historic")
+mpa_midcen <- mpa %>%
+  filter(period == "midcen")
+mpa_endcen <- mpa %>%
+  filter(period == "endcen")
+```
