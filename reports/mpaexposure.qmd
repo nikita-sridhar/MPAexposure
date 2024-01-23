@@ -1,0 +1,1495 @@
+---
+title: "MPA Exposure Analysis"
+format: 
+  html:
+    code-fold: true
+editor: visual
+---
+
+```{r}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+
+------------------------------------------------------------------------
+
+Code to characterize exposure of California MPAs to future pH, DO, and temperature using IPSL model predictions. Note: this setup is only for one projection (IPSL). Change every occurence of "IPSL" to "GFDL" or "HADLEY" in this report to do same for diff projection.
+
+## Setup
+
+Load libraries and read data. Convert DO units and filter for years 2090-2100.
+
+```{r}
+#| label: libraries
+#| message: false
+
+library(tidyverse)
+library(lubridate)
+library(data.table)
+library(factoextra)
+library(broom)
+library(cowplot)
+library(respR)
+library(here)
+library(lattice)
+library(RcppRoll)
+library(RColorBrewer)
+library(gplots)
+library(ggpmisc)
+```
+
+```{r}
+#| label: load_data
+#| message: false
+
+#Read mpa data, convert DO units, add a column for time period, and one for difference between mid/end cen and historic.
+mpa <- read_csv(here("data/processeddata/model/IPSLmpa.csv")) %>% 
+  mutate(DO_mmolL = DO_surf/1000,
+         DO_mgL = convert_DO(DO_mmolL, from = "mmol/L", to = "mg/L")) %>% 
+  filter(Year <= 2020|
+         Year >= 2040 & Year <= 2060|
+         Year >= 2080 & Year <= 2100) %>%
+  mutate(period = case_when((Year <= 2020) ~ "historic", 
+                           (Year %in% c(2040:2060)) ~ "midcen",
+                           (Year %in% c(2080:2100)) ~ "endcen")) %>%
+  select(-T_bot, -DO_bot, -pH_bot,-DO_surf,-DO_mmolL) 
+mpa$File <- substr(mpa$File, 1, nchar(mpa$File)-4)
+
+
+```
+
+```{r}
+#| label: regions
+#| message: false
+#add regions here!
+mpa_centroids<- read_csv(here("data/rawdata/MPA_polygons.csv"))
+mpa_centroids$File <- sub("^", "tphdo_mpa_", mpa_centroids$OBJECTID )
+
+mpa_centroids <- mpa_centroids %>%
+  mutate(region = ifelse(degy >= 37.29, "norca", 
+                         ifelse(degy > 34.8, "centralca", 
+                                ifelse("degy" < 34.274 & "degx" < -119.220, "channelisl" , 
+                                       "socal"))))
+
+channel <- c("Anacapa Island FMCA", "Anacapa Island FMR", "Anacapa Island SMCA", "Anacapa Island SMR", "Anacapa Island Special Closure", 
+             "Arrow Point to Lion Head Point SMCA", "Begg Rock SMR", "Blue Cavern Offshore SMCA", "Blue Cavern Onshore SMCA (No-Take)", 
+             "Carrington Point SMR", "Casino Point SMCA (No-Take)", "Cat Harbor SMCA", "Farnsworth Offshore SMCA", "Farnsworth Onshore SMCA", 
+             "Footprint FMR", "Footprint SMR", "Gull Island FMR", "Gull Island SMR", "Harris Point FMR", "Harris Point SMR", "Judith Rock SMR", 
+             "Long Point SMR", "Lover’s Cove SMCA", "Painted Cave SMCA", "Richardson Rock FMR", "Richardson Rock SMR", "San Miguel Island Special Closure", 
+             "Santa Barbara Island FMR", "Santa Barbara Island SMR", "Scorpion FMR", "Scorpion SMR", "Skunk Point SMR", "South Point FMR", "South Point SMR")
+
+mpa_centroids$region[mpa_centroids$NAME %in% channel]  <- "channel" 
+mpa <- merge(mpa, mpa_centroids,  by = "File")
+
+mpa_historic <- mpa %>%
+  filter(period == "historic")
+mpa_midcen <- mpa %>%
+  filter(period == "midcen")
+mpa_endcen <- mpa %>%
+  filter(period == "endcen")
+```
+
+## Create summary stats
+
+Find mean and lower 10th percentile of pH, temp, and DO for each MPA
+
+```{r}
+#| label: summary_stats
+
+sum_historic <- mpa_historic %>% 
+  group_by(File) %>% 
+  summarize(across(c(T_surf, DO_mgL, pH_surf), 
+                   list(mean = mean, quantile = ~ quantile(.x, 0.1)))) %>% 
+  rename(T_mean = T_surf_mean, 
+         DO_mean = DO_mgL_mean, 
+         pH_mean = pH_surf_mean, 
+         T_low10 = T_surf_quantile, 
+         DO_low10 = DO_mgL_quantile, 
+         pH_low10 = pH_surf_quantile) 
+sum_historic <- merge(sum_historic, mpa_centroids,  by = "File")
+
+
+sum_midcen <- mpa_midcen %>% 
+  group_by(File) %>% 
+  summarize(across(c(T_surf, DO_mgL, pH_surf), 
+                   list(mean = mean, quantile = ~ quantile(.x, 0.1)))) %>% 
+  rename(T_mean = T_surf_mean, 
+         DO_mean = DO_mgL_mean, 
+         pH_mean = pH_surf_mean, 
+         T_low10 = T_surf_quantile, 
+         DO_low10 = DO_mgL_quantile, 
+         pH_low10 = pH_surf_quantile)
+sum_midcen <- merge(sum_midcen, mpa_centroids,  by = "File")
+
+
+sum_endcen <- mpa_endcen %>% 
+  group_by(File) %>% 
+  summarize(across(c(T_surf, DO_mgL, pH_surf), 
+                   list(mean = mean, quantile = ~ quantile(.x, 0.1)))) %>% 
+  rename(T_mean = T_surf_mean, 
+         DO_mean = DO_mgL_mean, 
+         pH_mean = pH_surf_mean, 
+         T_low10 = T_surf_quantile, 
+         DO_low10 = DO_mgL_quantile, 
+         pH_low10 = pH_surf_quantile)
+sum_endcen <- merge(sum_endcen, mpa_centroids,  by = "File")
+```
+
+## Calculate seasonal variation
+
+Create a climatology (Jan averaged over every year), so each MPA has one value per month that is averaged over all of the years. Find SD of this dataframe, to get seasonal variation.
+
+```{r}
+#| label: clim_SD
+#| message: false
+
+mpa_historic_climatology <- mpa_historic %>%
+  group_by(File, Month) %>%
+  summarise(T_clim = mean(T_surf), T_clim_sd = sd(T_surf), pH_clim = mean(pH_surf), DO_clim =   mean(DO_mgL))
+mpa_midcen_climatology <- mpa_midcen %>%
+  group_by(File, Month) %>%
+  summarise(T_clim = mean(T_surf), pH_clim = mean(pH_surf), DO_clim = mean(DO_mgL))
+mpa_endcen_climatology <- mpa_endcen %>%
+  group_by(File, Month) %>%
+  summarise(T_clim = mean(T_surf), pH_clim = mean(pH_surf), DO_clim = mean(DO_mgL))
+
+historic_seasonalSD <- mpa_historic_climatology %>%
+  group_by(File) %>%
+  summarise(T_seasonalSD = sd(T_clim),
+            pH_seasonalSD = sd(pH_clim),
+            DO_seasonalSD = sd(DO_clim))
+midcen_seasonalSD <- mpa_midcen_climatology %>%
+  group_by(File) %>%
+  summarise(T_seasonalSD = sd(T_clim),
+            pH_seasonalSD = sd(pH_clim),
+            DO_seasonalSD = sd(DO_clim))
+endcen_seasonalSD <- mpa_endcen_climatology %>%
+  group_by(File) %>%
+  summarise(T_seasonalSD = sd(T_clim),
+            pH_seasonalSD = sd(pH_clim),
+            DO_seasonalSD = sd(DO_clim))
+```
+
+## Calculate event-based variation
+
+Create a mock dataset interpolating climatologies to get daily values in the absence of natural event-based variability. Subtract actual daily values. Find standard deviation of these differences (on a daily scale).
+
+Setup for interpolation:
+
+```{r}
+#| label: inter_setup
+#| message: false
+#| warning: false
+
+
+#First: Need to create a day1 and day365 proxies. Approx function can only interpolate not extrapolate so without this, you can interpolate days 1-14 and 350-365. #below creates empty vectors as big as we need (365 days per mpa) for each variable and each mpa. julianday is dates 1-365 as many mpa times
+
+mpaslist = unique(mpa$File) 
+mpas = rep(NA, 365*121)
+julianday = rep(1:365, 121)
+T_clim = rep(NA, 365*121)
+pH_clim = rep(NA, 365*121)
+DO_clim = rep(NA, 365*121)
+
+#Set up a vector of julian day assignment for the 15th of each month and the first and last day of the year
+x_in <- yday(as.Date(c("2000-01-01", "2000-01-15","2000-02-15","2000-03-15","2000-04-15","2000-05-15","2000-06-15",
+                       "2000-07-15","2000-08-15","2000-09-15","2000-10-15","2000-11-15","2000-12-15", "2000-12-31")))
+
+# creating a list of all the days of the year not included in x_in to interpolate to.
+x_out <- (1:365)
+x_out <- x_out[!(x_out %in% x_in)] #removing the days of the year we already have values for
+```
+
+Interpolation for temp:
+
+```{r,warning=FALSE, message=FALSE, results='hide'}
+#| label: inter_temp
+#| message: false
+#| warning: false
+
+#HISTORIC
+for (i in 1:length(mpaslist)){
+  print(i)
+  d = mpa_historic_climatology %>% filter(File == mpaslist[i]) %>% select(T_clim)
+  #use a weighted average to get these
+  Dec31 = as.numeric(( ((16/30) * (d[12,2])) + ((14/30) * d[1,2]) ))
+  Jan1 = as.numeric(( ((14/30) * (d[12,2])) + ((16/30) * d[1,2]) ))
+  # a list of y-values of the climatological temp on each of the days in x_in
+  y_in <- c(Jan1, d$T_clim, Dec31)
+
+  mod = approx(x = x_in, y = y_in, xout = x_out) 
+  mpas[((i-1)*365+1):(i*365)] <- mpaslist[i] #rep(mpaslist[1], 365)
+  T_clim[((i-1)*365+1):(i*365)] <- mod$y
+}
+
+historic_tempdata = data.frame(mpas, julianday,T_clim)
+historic_tempdata <- historic_tempdata %>%
+  rename(File = mpas)
+
+#Later we create a julian day variable in our OG mpa dataset, to merge this to all the rows on the dataset by filename and day and then have the mean daily climatological value for each row. 
+#MIDCEN
+for (i in 1:length(mpaslist)){
+  print(i)
+  d = mpa_midcen_climatology %>% filter(File == mpaslist[i]) %>% select(T_clim)
+  #use a weighted average to get these
+  Dec31 = as.numeric(( ((16/30) * (d[12,2])) + ((14/30) * d[1,2]) ))
+  Jan1 = as.numeric(( ((14/30) * (d[12,2])) + ((16/30) * d[1,2]) ))
+  # a list of y-values of the climatological temp on each of the days in x_in
+  y_in <- c(Jan1, d$T_clim, Dec31)
+
+  mod = approx(x = x_in, y = y_in, xout = x_out) 
+  mpas[((i-1)*365+1):(i*365)] <- mpaslist[i] #rep(mpaslist[1], 365)
+  T_clim[((i-1)*365+1):(i*365)] <- mod$y
+}
+
+midcen_tempdata = data.frame(mpas, julianday,T_clim)
+midcen_tempdata <- midcen_tempdata %>%
+  rename(File = mpas)
+
+#ENDCEN
+for (i in 1:length(mpaslist)){
+  print(i)
+  d = mpa_endcen_climatology %>% filter(File == mpaslist[i]) %>% select(T_clim)
+  #use a weighted average to get these
+  Dec31 = as.numeric(( ((16/30) * (d[12,2])) + ((14/30) * d[1,2]) ))
+  Jan1 = as.numeric(( ((14/30) * (d[12,2])) + ((16/30) * d[1,2]) ))
+  # a list of y-values of the climatological temp on each of the days in x_in
+  y_in <- c(Jan1, d$T_clim, Dec31)
+
+  mod = approx(x = x_in, y = y_in, xout = x_out) 
+  mpas[((i-1)*365+1):(i*365)] <- mpaslist[i] #rep(mpaslist[1], 365)
+  T_clim[((i-1)*365+1):(i*365)] <- mod$y
+}
+
+endcen_tempdata = data.frame(mpas, julianday,T_clim)
+endcen_tempdata <- endcen_tempdata %>%
+  rename(File = mpas)
+```
+
+Interpolation for pH
+
+```{r, warning=FALSE, message=FALSE, results='hide'}
+#| label: inter_pH
+#| message: false
+#| warning: false
+
+#HISTORIC
+for (i in 1:length(mpaslist)){
+  print(i)
+  d = mpa_historic_climatology %>% filter(File == mpaslist[i]) %>% select(pH_clim)
+  Dec31 = as.numeric(( ((16/30) * (d[12,2])) + ((14/30) * d[1,2]) ))
+  Jan1 = as.numeric(( ((14/30) * (d[12,2])) + ((16/30) * d[1,2]) ))
+
+  y_in <- c(Jan1, d$pH_clim, Dec31)
+
+  mod = approx(x = x_in, y = y_in, xout = x_out) 
+  mpas[((i-1)*365+1):(i*365)] <- mpaslist[i]
+  pH_clim[((i-1)*365+1):(i*365)] <- mod$y
+}
+
+historic_pHdata = data.frame(mpas, julianday,pH_clim)
+historic_pHdata <- historic_pHdata %>%
+  rename(File = mpas)
+
+#MIDCEN
+for (i in 1:length(mpaslist)){
+  print(i)
+  d = mpa_midcen_climatology %>% filter(File == mpaslist[i]) %>% select(pH_clim)
+  Dec31 = as.numeric(( ((16/30) * (d[12,2])) + ((14/30) * d[1,2]) ))
+  Jan1 = as.numeric(( ((14/30) * (d[12,2])) + ((16/30) * d[1,2]) ))
+
+  y_in <- c(Jan1, d$pH_clim, Dec31)
+
+  mod = approx(x = x_in, y = y_in, xout = x_out) 
+  mpas[((i-1)*365+1):(i*365)] <- mpaslist[i]
+  pH_clim[((i-1)*365+1):(i*365)] <- mod$y
+}
+
+midcen_pHdata = data.frame(mpas, julianday,pH_clim)
+midcen_pHdata <- midcen_pHdata %>%
+  rename(File = mpas)
+
+#ENDCEN
+for (i in 1:length(mpaslist)){
+  print(i)
+  d = mpa_endcen_climatology %>% filter(File == mpaslist[i]) %>% select(pH_clim)
+  Dec31 = as.numeric(( ((16/30) * (d[12,2])) + ((14/30) * d[1,2]) ))
+  Jan1 = as.numeric(( ((14/30) * (d[12,2])) + ((16/30) * d[1,2]) ))
+
+  y_in <- c(Jan1, d$pH_clim, Dec31)
+
+  mod = approx(x = x_in, y = y_in, xout = x_out) 
+  mpas[((i-1)*365+1):(i*365)] <- mpaslist[i]
+  pH_clim[((i-1)*365+1):(i*365)] <- mod$y
+}
+
+endcen_pHdata = data.frame(mpas, julianday,pH_clim)
+endcen_pHdata <- endcen_pHdata %>%
+  rename(File = mpas)
+```
+
+Interpolation for DO:
+
+```{r,warning=FALSE, message=FALSE, results='hide'}
+#| label: inter_DO
+#| message: false
+#| warning: false
+
+#HISTORIC
+for (i in 1:length(mpaslist)){
+  print(i)
+  d = mpa_historic_climatology %>% filter(File == mpaslist[i]) %>% select(DO_clim)
+  Dec31 = as.numeric(( ((16/30) * (d[12,2])) + ((14/30) * d[1,2]) ))
+  Jan1 = as.numeric(( ((14/30) * (d[12,2])) + ((16/30) * d[1,2]) ))
+  y_in <- c(Jan1, d$DO_clim, Dec31)
+  
+  mod = approx(x = x_in, y = y_in, xout = x_out) 
+  mpas[((i-1)*365+1):(i*365)] <- mpaslist[i]
+  DO_clim[((i-1)*365+1):(i*365)] <- mod$y
+}
+
+historic_DOdata = data.frame(mpas, julianday,DO_clim)
+historic_DOdata <- historic_DOdata %>%
+  rename(File = mpas)
+
+#MIDCEN
+for (i in 1:length(mpaslist)){
+  print(i)
+  d = mpa_midcen_climatology %>% filter(File == mpaslist[i]) %>% select(DO_clim)
+  Dec31 = as.numeric(( ((16/30) * (d[12,2])) + ((14/30) * d[1,2]) ))
+  Jan1 = as.numeric(( ((14/30) * (d[12,2])) + ((16/30) * d[1,2]) ))
+  y_in <- c(Jan1, d$DO_clim, Dec31)
+  
+  mod = approx(x = x_in, y = y_in, xout = x_out) 
+  mpas[((i-1)*365+1):(i*365)] <- mpaslist[i]
+  DO_clim[((i-1)*365+1):(i*365)] <- mod$y
+}
+
+midcen_DOdata = data.frame(mpas, julianday,DO_clim)
+midcen_DOdata <- midcen_DOdata %>%
+  rename(File = mpas)
+
+#ENDCEN
+for (i in 1:length(mpaslist)){
+  print(i)
+  d = mpa_endcen_climatology %>% filter(File == mpaslist[i]) %>% select(DO_clim)
+  Dec31 = as.numeric(( ((16/30) * (d[12,2])) + ((14/30) * d[1,2]) ))
+  Jan1 = as.numeric(( ((14/30) * (d[12,2])) + ((16/30) * d[1,2]) ))
+  y_in <- c(Jan1, d$DO_clim, Dec31)
+  
+  mod = approx(x = x_in, y = y_in, xout = x_out) 
+  mpas[((i-1)*365+1):(i*365)] <- mpaslist[i]
+  DO_clim[((i-1)*365+1):(i*365)] <- mod$y
+}
+
+endcen_DOdata = data.frame(mpas, julianday,DO_clim)
+endcen_DOdata <- endcen_DOdata %>%
+  rename(File = mpas)
+```
+
+Merge interpolated values to MPA dataset and find SD
+
+```{r}
+#| label: inter_merge
+
+#adding julianday variable
+mpa_historic <- mpa_historic %>%
+  mutate(Date = make_date(Year, Month, Day)) %>%
+  mutate(julianday = yday(Date))
+mpa_midcen <- mpa_midcen %>%
+  mutate(Date = make_date(Year, Month, Day)) %>%
+  mutate(julianday = yday(Date))
+mpa_endcen <- mpa_endcen %>%
+  mutate(Date = make_date(Year, Month, Day)) %>%
+  mutate(julianday = yday(Date))
+
+#mpa merge to ph/do/temp
+historic_merge <- merge(mpa_historic, historic_tempdata, by = c("File", "julianday"))
+historic_merge <- merge(historic_merge, historic_DOdata, by = c("File", "julianday"))
+historic_merge <- merge(historic_merge, historic_pHdata, by = c("File", "julianday"))
+
+midcen_merge <- merge(mpa_midcen, midcen_tempdata, by = c("File", "julianday"))
+midcen_merge <- merge(midcen_merge, midcen_DOdata, by = c("File", "julianday"))
+midcen_merge <- merge(midcen_merge, midcen_pHdata, by = c("File", "julianday"))
+
+endcen_merge <- merge(mpa_endcen, endcen_tempdata, by = c("File", "julianday"))
+endcen_merge <- merge(endcen_merge, endcen_DOdata, by = c("File", "julianday"))
+endcen_merge <- merge(endcen_merge, endcen_pHdata, by = c("File", "julianday"))
+
+#subtract climatology . actual - clim
+#filtered for only upwelling months.
+historic_merge <- historic_merge %>%
+  mutate(noclim_T = T_surf - T_clim,
+         noclim_pH = pH_surf - pH_clim,
+         noclim_DO = DO_mgL - DO_clim) %>%
+  filter(Month == c(5,6,7,8,9))
+
+midcen_merge <- midcen_merge %>%
+  mutate(noclim_T = T_surf - T_clim,
+         noclim_pH = pH_surf - pH_clim,
+         noclim_DO = DO_mgL - DO_clim) %>%
+  filter(Month == c(5,6,7,8,9))
+
+endcen_merge <- endcen_merge %>%
+  mutate(noclim_T = T_surf - T_clim,
+         noclim_pH = pH_surf - pH_clim,
+         noclim_DO = DO_mgL - DO_clim) %>%
+  filter(Month == c(5,6,7,8,9))
+
+#find event based SD (removed clim)
+historic_eventSD <- historic_merge %>%
+  group_by(File) %>%
+  summarise(T_eventSD = sd(noclim_T),
+            pH_eventSD = sd(noclim_pH),
+            DO_eventSD = sd(noclim_DO))
+midcen_eventSD <- midcen_merge %>%
+  group_by(File) %>%
+  summarise(T_eventSD = sd(noclim_T),
+            pH_eventSD = sd(noclim_pH),
+            DO_eventSD = sd(noclim_DO))
+endcen_eventSD <- endcen_merge %>%
+  group_by(File) %>%
+  summarise(T_eventSD = sd(noclim_T),
+            pH_eventSD = sd(noclim_pH),
+            DO_eventSD = sd(noclim_DO))
+```
+
+## Append SD to summary stats
+
+```{r}
+#| label: append_sum
+
+#merging eventSD and seasonalSD to mpa_sum
+sum_historic <- merge(sum_historic, historic_seasonalSD,  by = "File")
+sum_historic <- merge(sum_historic, historic_eventSD,  by = "File")
+
+sum_midcen <- merge(sum_midcen, midcen_seasonalSD,  by = "File")
+sum_midcen <- merge(sum_midcen, midcen_eventSD,  by = "File")
+
+sum_endcen <- merge(sum_endcen, endcen_seasonalSD,  by = "File")
+sum_endcen <- merge(sum_endcen, endcen_eventSD,  by = "File")
+
+
+#create a new df that for each summary stat has: historic, (midcen-historic), (endcen-historic) - this is only really going to be used for heatmaps. so only need sum
+#renaming columns
+
+
+sum_diff <- merge(sum_historic,sum_midcen, by = "File") %>%
+  merge(sum_endcen) %>%
+  rename(historic_T_mean=T_mean.x,
+         historic_T_low10=T_low10.x,
+         historic_DO_mean=DO_mean.x,
+         historic_DO_low10=DO_low10.x,
+         historic_pH_mean=pH_mean.x,
+         historic_pH_low10=pH_low10.x,
+         historic_T_seasonalSD=T_seasonalSD.x,
+         historic_pH_seasonalSD=pH_seasonalSD.x,
+         historic_DO_seasonalSD=DO_seasonalSD.x,
+         historic_T_eventSD= T_eventSD.x,
+         historic_pH_eventSD=pH_eventSD.x,
+         historic_DO_eventSD=DO_eventSD.x,
+         midcen_T_mean=T_mean.y,
+         midcen_T_low10=T_low10.y,
+         midcen_DO_mean=DO_mean.y,
+         midcen_DO_low10=DO_low10.y,
+         midcen_pH_mean=pH_mean.y,
+         midcen_pH_low10=pH_low10.y,
+         midcen_T_seasonalSD=T_seasonalSD.y,
+         midcen_pH_seasonalSD=pH_seasonalSD.y,
+         midcen_DO_seasonalSD= DO_seasonalSD.y,
+         midcen_T_eventSD=T_eventSD.y,
+         midcen_pH_eventSD=pH_eventSD.y,
+         midcen_DO_eventSD=DO_eventSD.y,
+         endcen_T_mean=T_mean,
+         endcen_T_low10=T_low10,
+         endcen_DO_mean=DO_mean,
+         endcen_DO_low10=DO_low10,
+         endcen_pH_mean=pH_mean,
+         endcen_pH_low10=pH_low10,
+         endcen_T_seasonalSD=T_seasonalSD,
+         endcen_pH_seasonalSD=pH_seasonalSD,
+         endcen_DO_seasonalSD=DO_seasonalSD,
+         endcen_T_eventSD=T_eventSD,
+         endcen_pH_eventSD=pH_eventSD,
+         endcen_DO_eventSD=DO_eventSD) %>%
+  mutate(mid_diff_T_mean = midcen_T_mean - historic_T_mean,
+         mid_diff_T_low10 = midcen_T_low10 - historic_T_low10,
+         mid_diff_T_seasonalSD = midcen_T_seasonalSD - historic_T_seasonalSD,
+         mid_diff_T_eventSD = midcen_T_eventSD - historic_T_eventSD,
+         mid_diff_pH_mean = midcen_pH_mean - historic_pH_mean,
+         mid_diff_pH_low10 = midcen_pH_low10 - historic_pH_low10,
+         mid_diff_pH_seasonalSD = midcen_pH_seasonalSD - historic_pH_seasonalSD,
+         mid_diff_pH_eventSD = midcen_pH_eventSD - historic_pH_eventSD,
+         mid_diff_DO_mean = midcen_DO_mean - historic_DO_mean,
+         mid_diff_DO_low10 = midcen_DO_low10 - historic_DO_low10,
+         mid_diff_DO_seasonalSD = midcen_DO_seasonalSD - historic_DO_seasonalSD,
+         mid_diff_DO_eventSD = midcen_DO_eventSD - historic_DO_eventSD,
+         end_diff_T_mean = endcen_T_mean - historic_T_mean,
+         end_diff_T_low10 = endcen_T_low10 - historic_T_low10,
+         end_diff_T_seasonalSD = endcen_T_seasonalSD - historic_T_seasonalSD,
+         end_diff_T_eventSD = endcen_T_eventSD - historic_T_eventSD,
+         end_diff_pH_mean = endcen_pH_mean - historic_pH_mean,
+         end_diff_pH_low10 = endcen_pH_low10 - historic_pH_low10,
+         end_diff_pH_seasonalSD = endcen_pH_seasonalSD - historic_pH_seasonalSD,
+         end_diff_pH_eventSD = endcen_pH_eventSD - historic_pH_eventSD,
+         end_diff_DO_mean = endcen_DO_mean - historic_DO_mean,
+         end_diff_DO_low10 = endcen_DO_low10 - historic_DO_low10,
+         end_diff_DO_seasonalSD = endcen_DO_seasonalSD - historic_DO_seasonalSD,
+         end_diff_DO_eventSD = endcen_DO_eventSD - historic_DO_eventSD)
+
+```
+
+## PCA
+
+PCA with all summary stats (mean, lower 10th percentile, seasonal SD, event SD)
+
+```{r}
+#| label: pca
+
+sumsub_historic <- sum_historic %>% select(-OBJECTID,-NAME, -File,  -Area_sq_mi, -Type, -SHORTNAME, -degx, -degy, -region) 
+sumsub_midcen <- sum_midcen %>% select(-OBJECTID,-File, -NAME, -Area_sq_mi, -Type, -SHORTNAME, -degx, -degy, -region)
+sumsub_endcen <- sum_endcen %>% select(-OBJECTID,-File, -NAME, -Area_sq_mi, -Type, -SHORTNAME, -degx, -degy, -region) 
+
+
+pca_historic <- prcomp(sumsub_historic, scale = TRUE)
+fviz_pca_biplot(pca_historic, repel = TRUE,
+                col.var = "black",
+                col.ind = sum_historic$region,
+                label ="var",
+                labelsize = 3,
+                addEllipses = TRUE,
+                title = "IPSL Historic") 
+
+pca_midcen <- prcomp(sumsub_midcen, scale = TRUE)
+fviz_pca_biplot(pca_midcen, repel = TRUE,
+                col.var = "black",
+                col.ind = sum_midcen$region,
+                label ="var",
+                labelsize = 3,
+                addEllipses = TRUE,
+                title = "IPSL Mid cen") 
+
+pca_endcen <- prcomp(sumsub_endcen, scale = TRUE) #REMOVE [,-1] IF DONT WANT TO ROTATE
+fviz_pca_biplot(pca_historic, repel = TRUE,
+                col.var = "black",
+                col.ind = sum_endcen$region,
+                label ="var",
+                labelsize = 3,
+                addEllipses = TRUE,
+                title = "IPSL End cen") 
+
+
+fviz_pca_ind(pca_historic, label="none", habillage=sum_historic$region,
+     addEllipses=TRUE,  col.ind = sum_endcen$region)
+```
+
+## Heatmaps with all variables
+
+Create latitudinaly arranged heatmaps showing all summary stats for all MPAs
+
+```{r}
+#| label: heatmap
+
+#HISTORIC
+#ordering by latitude so rows make some sense in heatmap
+historic_selectvar <- sum_historic[order(sum_historic$degy),] %>%
+  select(NAME,T_mean,pH_mean,DO_mean,T_low10,pH_low10,DO_low10, T_seasonalSD,pH_seasonalSD,           DO_seasonalSD, T_eventSD, pH_eventSD,DO_eventSD, region)
+
+#selecting data we want and converting first column into rownames to label rows later in the heatmap
+historic_selectvar_norca <- historic_selectvar %>%
+  filter(region == "norca") %>% select(-region)
+historic_selectvar_centralca <- historic_selectvar %>%
+  filter(region == "centralca") %>% select(-region)
+historic_selectvar_channel <- historic_selectvar %>%
+  filter(region == "channel") %>% select(-region)
+historic_selectvar_socal <- historic_selectvar %>%
+  filter(region == "socal") %>% select(-region)
+
+historic_rnames_norca <- historic_selectvar_norca[,1]
+historic_rnames_centralca <- historic_selectvar_centralca[,1]
+historic_rnames_channel <- historic_selectvar_channel[,1]
+historic_rnames_socal <- historic_selectvar_socal[,1]
+
+col <- colorRampPalette(brewer.pal(9,"YlOrRd"))(256)
+
+#heatmaps
+historic_selectvar_norca <- as.matrix(historic_selectvar_norca[,2:ncol(historic_selectvar_norca)])
+rownames(historic_selectvar_norca) <- historic_rnames_norca
+heatmap(historic_selectvar_norca, col=col,Rowv = NA, Colv = NA, 
+        scale="column", main = "Historic IPSL Northern CA") 
+      
+historic_selectvar_centralca <- as.matrix(historic_selectvar_centralca[,2:ncol(historic_selectvar_centralca)])
+rownames(historic_selectvar_centralca) <- historic_rnames_centralca
+heatmap(historic_selectvar_centralca,col=col, Rowv = NA, Colv = NA, 
+        scale="column", main = "Historic IPSL Central CA") 
+
+historic_selectvar_channel <- as.matrix(historic_selectvar_channel[,2:ncol(historic_selectvar_channel)])
+rownames(historic_selectvar_channel) <- historic_rnames_channel
+heatmap(historic_selectvar_channel,col=col, Rowv = NA, Colv = NA, 
+        scale="column", main = "Historic IPSL Channel Islands") 
+
+historic_selectvar_socal <- as.matrix(historic_selectvar_socal[,2:ncol(historic_selectvar_socal)])
+rownames(historic_selectvar_socal) <- historic_rnames_socal
+heatmap(historic_selectvar_socal, col=col,Rowv = NA, Colv = NA,  
+        scale="column", main = "Historic IPSL Southern CA") 
+
+
+#MIDCEN
+#ordering by latitude so rows make some sense in heatmap
+midcen_selectvar <- sum_diff[order(sum_historic$degy),] %>%
+  select(NAME.x,mid_diff_T_mean,mid_diff_pH_mean,mid_diff_DO_mean,mid_diff_T_low10,mid_diff_pH_low10,mid_diff_DO_low10, mid_diff_T_seasonalSD,mid_diff_pH_seasonalSD,           mid_diff_DO_seasonalSD, mid_diff_T_eventSD, mid_diff_pH_eventSD,mid_diff_DO_eventSD, region)
+
+#selecting data we want and converting first column into rownames to label rows later in the heatmap
+midcen_selectvar_norca <- midcen_selectvar %>%
+  filter(region == "norca") %>% select(-region)
+midcen_selectvar_centralca <- midcen_selectvar %>%
+  filter(region == "centralca") %>% select(-region)
+midcen_selectvar_channel <- midcen_selectvar %>%
+  filter(region == "channel") %>% select(-region)
+midcen_selectvar_socal <- midcen_selectvar %>%
+  filter(region == "socal") %>% select(-region)
+
+midcen_rnames_norca <- midcen_selectvar_norca[,1]
+midcen_rnames_centralca <- midcen_selectvar_centralca[,1]
+midcen_rnames_channel <- midcen_selectvar_channel[,1]
+midcen_rnames_socal <- midcen_selectvar_socal[,1]
+
+#heatmaps
+midcen_selectvar_norca <- as.matrix(midcen_selectvar_norca[,2:ncol(midcen_selectvar_norca)])
+rownames(midcen_selectvar_norca) <- midcen_rnames_norca
+heatmap(midcen_selectvar_norca, Rowv = NA, Colv = NA, 
+        scale="column", col=col,main = "Mid cen diff IPSL Northern CA") 
+      
+midcen_selectvar_centralca <- as.matrix(midcen_selectvar_centralca[,2:ncol(midcen_selectvar_centralca)])
+rownames(midcen_selectvar_centralca) <- midcen_rnames_centralca
+heatmap(midcen_selectvar_centralca, Rowv = NA, Colv = NA, 
+        scale="column", col=col,main = "Mid cen diff IPSL Central CA") 
+
+midcen_selectvar_channel <- as.matrix(midcen_selectvar_channel[,2:ncol(midcen_selectvar_channel)])
+rownames(midcen_selectvar_channel) <- midcen_rnames_channel
+heatmap(midcen_selectvar_channel, Rowv = NA, Colv = NA, 
+        scale="column", main = "Mid cen diff IPSL Channel Islands") 
+
+midcen_selectvar_socal <- as.matrix(midcen_selectvar_socal[,2:ncol(midcen_selectvar_socal)])
+rownames(midcen_selectvar_socal) <- midcen_rnames_socal
+heatmap(midcen_selectvar_socal, Rowv = NA, Colv = NA,  
+        scale="column", main = "Mid cen diff IPSL Southern CA") 
+
+
+#ENDCEN
+#ordering by latitude so rows make some sense in heatmap
+endcen_selectvar <- sum_diff[order(sum_endcen$degy),] %>%
+  select(NAME.x,end_diff_T_mean,end_diff_pH_mean,end_diff_DO_mean,end_diff_T_low10,end_diff_pH_low10,end_diff_DO_low10, end_diff_T_seasonalSD,end_diff_pH_seasonalSD,           end_diff_DO_seasonalSD, end_diff_T_eventSD, end_diff_pH_eventSD,end_diff_DO_eventSD, region)
+
+#selecting data we want and converting first column into rownames to label rows later in the heatmap
+endcen_selectvar_norca <- endcen_selectvar %>%
+  filter(region == "norca") %>% select(-region)
+endcen_selectvar_centralca <- endcen_selectvar %>%
+  filter(region == "centralca") %>% select(-region)
+endcen_selectvar_channel <- endcen_selectvar %>%
+  filter(region == "channel") %>% select(-region)
+endcen_selectvar_socal <- endcen_selectvar %>%
+  filter(region == "socal") %>% select(-region)
+
+endcen_rnames_norca <- endcen_selectvar_norca[,1]
+endcen_rnames_centralca <- endcen_selectvar_centralca[,1]
+endcen_rnames_channel <- endcen_selectvar_channel[,1]
+endcen_rnames_socal <- endcen_selectvar_socal[,1]
+
+#heatmaps
+endcen_selectvar_norca <- as.matrix(endcen_selectvar_norca[,2:ncol(endcen_selectvar_norca)])
+rownames(endcen_selectvar_norca) <- endcen_rnames_norca
+heatmap(endcen_selectvar_norca, Rowv = NA, Colv = NA, 
+        scale="column", col=col,main = "End cen diff IPSL Northern CA") 
+      
+endcen_selectvar_centralca <- as.matrix(endcen_selectvar_centralca[,2:ncol(endcen_selectvar_centralca)])
+rownames(endcen_selectvar_centralca) <- endcen_rnames_centralca
+heatmap(endcen_selectvar_centralca, Rowv = NA, Colv = NA, 
+        scale="column", col=col,main = "End cen diff IPSL Central CA") 
+
+endcen_selectvar_channel <- as.matrix(endcen_selectvar_channel[,2:ncol(endcen_selectvar_channel)])
+rownames(endcen_selectvar_channel) <- endcen_rnames_channel
+heatmap(endcen_selectvar_channel, Rowv = NA, Colv = NA, 
+        scale="column", col=col,main = "End cen diff IPSL Channel Islands") 
+
+endcen_selectvar_socal <- as.matrix(endcen_selectvar_socal[,2:ncol(endcen_selectvar_socal)])
+rownames(endcen_selectvar_socal) <- endcen_rnames_socal
+heatmap(endcen_selectvar_socal, Rowv = NA, Colv = NA,  
+        scale="column", col=col,main = "End cen diff IPSL Southern CA") 
+
+
+
+```
+
+## Heatmaps by variable
+
+```{r}
+col <- colorRampPalette(brewer.pal(9,"YlOrRd"))(256)
+invert_col <- colorRampPalette(rev(brewer.pal(9,"YlOrRd")))(256)
+```
+
+Heatmaps across all regions for T sumary stats
+
+```{r}
+#T mean all regions
+sum_diff_T_mean <- sum_diff[order(sum_diff$degy.x),] %>%
+  select(NAME,historic_T_mean, midcen_T_mean, endcen_T_mean) 
+
+rownames(sum_diff_T_mean) <- sum_diff_T_mean[,1]
+
+Tmean <- as.matrix(sum_diff_T_mean[,2:4])
+
+heatmap.2(Tmean,Rowv = FALSE, Colv = FALSE, dendrogram = "none", 
+          main = "T mean",tracecol=NA, revC= TRUE,
+          margins = c(5,10), col=col, srtCol = 45)
+
+#T low 10 all regions
+sum_diff_T_low10 <- sum_diff[order(sum_diff$degy.x),] %>%
+  select(NAME,historic_T_low10, midcen_T_low10, endcen_T_low10) 
+
+rownames(sum_diff_T_low10) <- sum_diff_T_low10[,1]
+
+Tlow10 <- as.matrix(sum_diff_T_low10[,2:4])
+
+heatmap.2(Tlow10,Rowv = FALSE, Colv = FALSE, dendrogram = "none", 
+          main = "T low10",tracecol=NA, revC= TRUE,
+          margins = c(5,10), col=col, srtCol = 45)
+
+#T seasonalSD all regions
+sum_diff_T_seasonalSD <- sum_diff[order(sum_diff$degy.x),] %>%
+  select(NAME,historic_T_seasonalSD, midcen_T_seasonalSD, endcen_T_seasonalSD) 
+
+rownames(sum_diff_T_seasonalSD) <- sum_diff_T_seasonalSD[,1]
+
+TseasonalSD <- as.matrix(sum_diff_T_seasonalSD[,2:4])
+
+heatmap.2(TseasonalSD,Rowv = FALSE, Colv = FALSE, dendrogram = "none", 
+          main = "T seasonalSD",tracecol=NA, revC= TRUE,
+          margins = c(5,10), col=col, srtCol = 45)
+
+#T eventSD all regions
+sum_diff_T_eventSD <- sum_diff[order(sum_diff$degy.x),] %>%
+  select(NAME,historic_T_eventSD, midcen_T_eventSD, endcen_T_eventSD) 
+
+rownames(sum_diff_T_eventSD) <- sum_diff_T_eventSD[,1]
+
+TeventSD <- as.matrix(sum_diff_T_eventSD[,2:4])
+
+heatmap.2(TeventSD,Rowv = FALSE, Colv = FALSE, dendrogram = "none", 
+          main = "T eventSD",tracecol=NA, revC= TRUE,
+          margins = c(5,10), col=col, srtCol = 45)
+```
+
+Heatmaps across all regions for DO summary stats
+
+```{r}
+#DO mean all regions
+sum_diff_DO_mean <- sum_diff[order(sum_diff$degy.x),] %>%
+  select(NAME,historic_DO_mean, midcen_DO_mean, endcen_DO_mean) 
+
+rownames(sum_diff_DO_mean) <- sum_diff_DO_mean[,1]
+
+DOmean <- as.matrix(sum_diff_DO_mean[,2:4])
+
+heatmap.2(DOmean,Rowv = FALSE, Colv = FALSE, dendrogram = "none", 
+          main = "DO mean",tracecol=NA, revC= TRUE,
+          margins = c(5,10), col=invert_col, srtCol = 45)
+
+#DO low 10 all regions
+sum_diff_DO_low10 <- sum_diff[order(sum_diff$degy.x),] %>%
+  select(NAME,historic_DO_low10, midcen_DO_low10, endcen_DO_low10) 
+
+rownames(sum_diff_DO_low10) <- sum_diff_DO_low10[,1]
+
+DOlow10 <- as.matrix(sum_diff_DO_low10[,2:4])
+
+heatmap.2(DOlow10,Rowv = FALSE, Colv = FALSE, dendrogram = "none", 
+          main = "DO low10",tracecol=NA, revC= TRUE,
+          margins = c(5,10), col=invert_col, srtCol = 45)
+
+#DO seasonalSD all regions
+sum_diff_DO_seasonalSD <- sum_diff[order(sum_diff$degy.x),] %>%
+  select(NAME,historic_DO_seasonalSD, midcen_DO_seasonalSD, endcen_DO_seasonalSD) 
+
+rownames(sum_diff_DO_seasonalSD) <- sum_diff_DO_seasonalSD[,1]
+
+DOseasonalSD <- as.matrix(sum_diff_DO_seasonalSD[,2:4])
+
+heatmap.2(DOseasonalSD,Rowv = FALSE, Colv = FALSE, dendrogram = "none", 
+          main = "DO seasonalSD",tracecol=NA, revC= TRUE,
+          margins = c(5,10), col=col, srtCol = 45)
+
+#DO eventSD all regions
+sum_diff_DO_eventSD <- sum_diff[order(sum_diff$degy.x),] %>%
+  select(NAME,historic_DO_eventSD, midcen_DO_eventSD, endcen_DO_eventSD) 
+
+rownames(sum_diff_DO_eventSD) <- sum_diff_DO_eventSD[,1]
+
+DOeventSD <- as.matrix(sum_diff_DO_eventSD[,2:4])
+
+heatmap.2(DOeventSD,Rowv = FALSE, Colv = FALSE, dendrogram = "none", 
+          main = "DO eventSD",tracecol=NA, revC= TRUE,
+          margins = c(5,10), col=col, srtCol = 45)
+
+```
+
+Heatmaps across all regions for pH summary stats
+
+```{r}
+#pH mean all regions
+sum_diff_pH_mean <- sum_diff[order(sum_diff$degy.x),] %>%
+  select(NAME,historic_pH_mean, midcen_pH_mean, endcen_pH_mean) 
+
+rownames(sum_diff_pH_mean) <- sum_diff_pH_mean[,1]
+
+pHmean <- as.matrix(sum_diff_pH_mean[,2:4])
+
+heatmap.2(pHmean,Rowv = FALSE, Colv = FALSE, dendrogram = "none", 
+          main = "pH mean",tracecol=NA, revC= TRUE,
+          margins = c(5,10), col=invert_col, srtCol = 45)
+
+#pH low 10 all regions
+sum_diff_pH_low10 <- sum_diff[order(sum_diff$degy.x),] %>%
+  select(NAME,historic_pH_low10, midcen_pH_low10, endcen_pH_low10) 
+
+rownames(sum_diff_pH_low10) <- sum_diff_pH_low10[,1]
+
+pHlow10 <- as.matrix(sum_diff_pH_low10[,2:4])
+
+heatmap.2(pHlow10,Rowv = FALSE, Colv = FALSE, dendrogram = "none", 
+          main = "pH low10",tracecol=NA, revC= TRUE,
+          margins = c(5,10), col=invert_col, srtCol = 45)
+
+#pH seasonalSD all regions
+sum_diff_pH_seasonalSD <- sum_diff[order(sum_diff$degy.x),] %>%
+  select(NAME,historic_pH_seasonalSD, midcen_pH_seasonalSD, endcen_pH_seasonalSD) 
+
+rownames(sum_diff_pH_seasonalSD) <- sum_diff_pH_seasonalSD[,1]
+
+pHseasonalSD <- as.matrix(sum_diff_pH_seasonalSD[,2:4])
+
+heatmap.2(pHseasonalSD,Rowv = FALSE, Colv = FALSE, dendrogram = "none", 
+          main = "pH seasonalSD",tracecol=NA, revC= TRUE,
+          margins = c(5,10), col=col, srtCol = 45)
+
+#pH eventSD all regions
+sum_diff_pH_eventSD <- sum_diff[order(sum_diff$degy.x),] %>%
+  select(NAME,historic_pH_eventSD, midcen_pH_eventSD, endcen_pH_eventSD) 
+
+rownames(sum_diff_pH_eventSD) <- sum_diff_pH_eventSD[,1]
+
+pHeventSD <- as.matrix(sum_diff_pH_eventSD[,2:4])
+
+heatmap.2(pHeventSD,Rowv = FALSE, Colv = FALSE, dendrogram = "none", 
+          main = "pH eventSD",tracecol=NA, revC= TRUE,
+          margins = c(5,10), col=col, srtCol = 45)
+
+```
+
+## Regressions
+
+Supplementing heatmaps by looking at correlation between historic and future time periods for a given summary stat
+
+Temp:
+
+```{r}
+# T -----------------------------------------------------------------------
+
+#historic T_mean vs. midcen T_mean
+ggplot(data = sum_diff, aes(x = historic_T_mean, y = midcen_T_mean)) +
+  stat_poly_line() +
+  stat_poly_eq(use_label(c("eq", "R2"))) +
+  geom_point() +
+  theme_classic() +
+  labs(y= "Midcen T_mean", x = "Historic T_mean") +
+  ggtitle("Historic vs. midcen T_mean")
+
+#historic T_mean vs. endcen T_mean
+ggplot(data = sum_diff, aes(x = historic_T_mean, y = endcen_T_mean)) +
+  stat_poly_line() +
+  stat_poly_eq(use_label(c("eq", "R2"))) +
+  geom_point() +
+  theme_classic() +
+  labs(y= "Endcen T_mean", x = "Historic T_mean") +
+  ggtitle("Historic vs. endcen T_mean")
+
+#historic T_seasonalSD vs. midcen T_seasonalSD
+ggplot(data = sum_diff, aes(x = historic_T_seasonalSD, y = midcen_T_seasonalSD)) +
+  stat_poly_line() +
+  stat_poly_eq(use_label(c("eq", "R2"))) +
+  geom_point() +
+  theme_classic() +
+  labs(y= "Midcen T_seasonalSD", x = "Historic T_seasonalSD") +
+  ggtitle("Historic vs. midcen T_seasonalSD")
+
+#historic T_seasonalSD vs. endcen T_seasonalSD
+ggplot(data = sum_diff, aes(x = historic_T_seasonalSD, y = endcen_T_seasonalSD)) +
+  stat_poly_line() +
+  stat_poly_eq(use_label(c("eq", "R2"))) +
+  geom_point() +
+  theme_classic() +
+  labs(y= "Endcen T_seasonalSD", x = "Historic T_seasonalSD") +
+  ggtitle("Historic vs. endcen T_seasonalSD")
+
+#historic T_eventSD vs. midcen T_eventSD
+ggplot(data = sum_diff, aes(x = historic_T_eventSD, y = midcen_T_eventSD)) +
+  stat_poly_line() +
+  stat_poly_eq(use_label(c("eq", "R2"))) +
+  geom_point() +
+  theme_classic() +
+  labs(y= "Midcen T_eventSD", x = "Historic T_eventSD") +
+  ggtitle("Historic vs. midcen T_eventSD")
+
+#historic T_eventSD vs. endcen T_eventSD
+ggplot(data = sum_diff, aes(x = historic_T_eventSD, y = endcen_T_eventSD)) +
+  stat_poly_line() +
+  stat_poly_eq(use_label(c("eq", "R2"))) +
+  geom_point() +
+  theme_classic() +
+  labs(y= "Endcen T_eventSD", x = "Historic T_eventSD") +
+  ggtitle("Historic vs. endcen T_eventSD")
+
+```
+
+pH
+
+```{r}
+#historic pH_mean vs. midcen pH_mean
+ggplot(data = sum_diff, aes(x = historic_pH_mean, y = midcen_pH_mean)) +
+  stat_poly_line() +
+  stat_poly_eq(use_label(c("eq", "R2"))) +
+  geom_point() +
+  theme_classic() +
+  labs(y= "Midcen pH_mean", x = "Historic pH_mean") +
+  ggtitle("Historic vs. midcen pH_mean")
+
+#historic pH_mean vs. endcen pH_mean
+ggplot(data = sum_diff, aes(x = historic_pH_mean, y = endcen_pH_mean)) +
+  stat_poly_line() +
+  stat_poly_eq(use_label(c("eq", "R2"))) +
+  geom_point() +
+  theme_classic() +
+  labs(y= "Endcen pH_mean", x = "Historic pH_mean") +
+  ggtitle("Historic vs. endcen pH_mean")
+
+#historic pH_seasonalSD vs. midcen pH_seasonalSD
+ggplot(data = sum_diff, aes(x = historic_pH_seasonalSD, y = midcen_pH_seasonalSD)) +
+  stat_poly_line() +
+  stat_poly_eq(use_label(c("eq", "R2"))) +
+  geom_point() +
+  theme_classic() +
+  labs(y= "Midcen pH_seasonalSD", x = "Historic pH_seasonalSD") +
+  ggtitle("Historic vs. midcen pH_seasonalSD")
+
+#historic pH_seasonalSD vs. endcen pH_seasonalSD
+ggplot(data = sum_diff, aes(x = historic_pH_seasonalSD, y = endcen_pH_seasonalSD)) +
+  stat_poly_line() +
+  stat_poly_eq(use_label(c("eq", "R2"))) +
+  geom_point() +
+  theme_classic() +
+  labs(y= "Endcen pH_seasonalSD", x = "Historic pH_seasonalSD") +
+  ggtitle("Historic vs. endcen pH_seasonalSD")
+
+#historic pH_eventSD vs. midcen pH_eventSD
+ggplot(data = sum_diff, aes(x = historic_pH_eventSD, y = midcen_pH_eventSD)) +
+  stat_poly_line() +
+  stat_poly_eq(use_label(c("eq", "R2"))) +
+  geom_point() +
+  theme_classic() +
+  labs(y= "Midcen pH_eventSD", x = "Historic pH_eventSD") +
+  ggtitle("Historic vs. midcen pH_eventSD")
+
+#historic pH_eventSD vs. endcen pH_eventSD
+ggplot(data = sum_diff, aes(x = historic_pH_eventSD, y = endcen_pH_eventSD)) +
+  stat_poly_line() +
+  stat_poly_eq(use_label(c("eq", "R2"))) +
+  geom_point() +
+  theme_classic() +
+  labs(y= "Endcen pH_eventSD", x = "Historic pH_eventSD") +
+  ggtitle("Historic vs. endcen pH_eventSD")
+
+```
+
+DO
+
+```{r}
+#historic DO_mean vs. midcen DO_mean
+ggplot(data = sum_diff, aes(x = historic_DO_mean, y = midcen_DO_mean)) +
+  stat_poly_line() +
+  stat_poly_eq(use_label(c("eq", "R2"))) +
+  geom_point() +
+  theme_classic() +
+  labs(y= "Midcen DO_mean", x = "Historic DO_mean") +
+  ggtitle("Historic vs. midcen DO_mean")
+
+#historic DO_mean vs. endcen DO_mean
+ggplot(data = sum_diff, aes(x = historic_DO_mean, y = endcen_DO_mean)) +
+  stat_poly_line() +
+  stat_poly_eq(use_label(c("eq", "R2"))) +
+  geom_point() +
+  theme_classic() +
+  labs(y= "Endcen DO_mean", x = "Historic DO_mean") +
+  ggtitle("Historic vs. endcen DO_mean")
+
+#historic DO_seasonalSD vs. midcen DO_seasonalSD
+ggplot(data = sum_diff, aes(x = historic_DO_seasonalSD, y = midcen_DO_seasonalSD)) +
+  stat_poly_line() +
+  stat_poly_eq(use_label(c("eq", "R2"))) +
+  geom_point() +
+  theme_classic() +
+  labs(y= "Midcen DO_seasonalSD", x = "Historic DO_seasonalSD") +
+  ggtitle("Historic vs. midcen DO_seasonalSD")
+
+#historic DO_seasonalSD vs. endcen DO_seasonalSD
+ggplot(data = sum_diff, aes(x = historic_DO_seasonalSD, y = endcen_DO_seasonalSD)) +
+  stat_poly_line() +
+  stat_poly_eq(use_label(c("eq", "R2"))) +
+  geom_point() +
+  theme_classic() +
+  labs(y= "Endcen DO_seasonalSD", x = "Historic DO_seasonalSD") +
+  ggtitle("Historic vs. endcen DO_seasonalSD")
+
+#historic DO_eventSD vs. midcen DO_eventSD
+ggplot(data = sum_diff, aes(x = historic_DO_eventSD, y = midcen_DO_eventSD)) +
+  stat_poly_line() +
+  stat_poly_eq(use_label(c("eq", "R2"))) +
+  geom_point() +
+  theme_classic() +
+  labs(y= "Midcen DO_eventSD", x = "Historic DO_eventSD") +
+  ggtitle("Historic vs. midcen DO_eventSD")
+
+#historic DO_eventSD vs. endcen DO_eventSD
+ggplot(data = sum_diff, aes(x = historic_DO_eventSD, y = endcen_DO_eventSD)) +
+  stat_poly_line() +
+  stat_poly_eq(use_label(c("eq", "R2"))) +
+  geom_point() +
+  theme_classic() +
+  labs(y= "Endcen DO_eventSD", x = "Historic DO_eventSD") +
+  ggtitle("Historic vs. endcen DO_eventSD")
+
+```
+
+## Anomalous pH/DO Event Analysis
+
+Find percentage of unsaturated/ low DO days over all years using a biological threshold. Separated by upwelling and non-upwelling months. Output is used to make maps in QGIS.
+
+```{r}
+# Create labels for events (e.g., consecutive days with low pH or low DO) using run 
+# length encoding
+label_events <- function(is_event) {
+  event_rle <- rle(is_event)
+  labels <- ifelse(event_rle$values, cumsum(event_rle$values), NA)
+  rep(labels, event_rle$lengths)
+}
+
+#historic =================================================================================
+
+historic_pH_events <- mpa_historic %>% 
+  mutate(is_pH_low = pH_surf < 7.75,
+         pH_event = label_events(is_pH_low)) 
+historic_pH_event_summary <- historic_pH_events %>% 
+  drop_na(pH_event) %>% 
+  group_by(File, pH_event) %>% 
+  summarize(duration_days = n(),
+            event_begin = min(Date),
+            mean_pH = mean(pH_surf),
+            intensity = 7.75 - mean_pH,
+            severity = intensity*duration_days,
+            .groups = "drop")
+historic_pH_mpa_summary <- historic_pH_event_summary %>%
+  group_by(File) %>%
+  summarise(num_event = n(),
+         mean_event_duration = mean(duration_days),
+         max_event_duration = max(duration_days),
+         mean_event_mean_pH = mean(mean_pH),
+         mean_event_intensity = mean(intensity),
+         mean_event_severity = mean(severity)) %>% 
+  merge(mpa_centroids, by = "File")
+#total days below threshold + avg ph below threhsold per mpa
+historic_pH_mpa_summary2 <- historic_pH_events %>%
+  filter(is_pH_low == TRUE) %>%
+  group_by(File, Year) %>%
+  summarise(annual_days_belowthresh = n(),
+            annual_avg_ph_belowthresh = mean(pH_surf))
+historic_pH_mpa_summary3 <- historic_pH_mpa_summary2 %>%
+  group_by(File)%>%
+  summarise(meanannual_days_belowthresh = mean(annual_days_belowthresh),
+            meanannual_avg_pH_belowthresh = mean(annual_avg_ph_belowthresh)) %>% 
+  mutate(period = "historic") %>%
+  merge(historic_pH_mpa_summary, by = "File") 
+
+#midcen =====================================================================================
+
+midcen_pH_events <- mpa_midcen %>% 
+  mutate(is_pH_low = pH_surf < 7.75,
+         pH_event = label_events(is_pH_low)) 
+midcen_pH_event_summary <- midcen_pH_events %>% 
+  drop_na(pH_event) %>% 
+  group_by(File, pH_event) %>% 
+  summarize(duration_days = n(),
+            event_begin = min(Date),
+            mean_pH = mean(pH_surf),
+            intensity = 7.75 - mean_pH,
+            severity = intensity*duration_days,
+            .groups = "drop")
+midcen_pH_mpa_summary <- midcen_pH_event_summary %>%
+  group_by(File) %>%
+  summarise(num_event = n(),
+            mean_event_duration = mean(duration_days),
+            max_event_duration = max(duration_days),
+            mean_event_mean_pH = mean(mean_pH),
+            mean_event_intensity = mean(intensity),
+            mean_event_severity = mean(severity)) %>% 
+  merge(mpa_centroids, by = "File")
+#total days below threshold + avg ph below threhsold per mpa
+midcen_pH_mpa_summary2 <- midcen_pH_events %>%
+  filter(is_pH_low == TRUE) %>%
+  group_by(File, Year) %>%
+  summarise(annual_days_belowthresh = n(),
+            annual_avg_ph_belowthresh = mean(pH_surf))
+midcen_pH_mpa_summary3 <- midcen_pH_mpa_summary2 %>%
+  group_by(File)%>%
+  summarise(meanannual_days_belowthresh = mean(annual_days_belowthresh),
+            meanannual_avg_pH_belowthresh = mean(annual_avg_ph_belowthresh)) %>% 
+  mutate(period = "midcen") %>%
+  merge(midcen_pH_mpa_summary, by = "File")  
+
+#endcen =====================================================================================
+
+endcen_pH_events <- mpa_endcen %>% 
+  mutate(is_pH_low = pH_surf < 7.75,
+         pH_event = label_events(is_pH_low)) 
+endcen_pH_event_summary <- endcen_pH_events %>% 
+  drop_na(pH_event) %>% 
+  group_by(File, pH_event) %>% 
+  summarize(duration_days = n(),
+            event_begin = min(Date),
+            mean_pH = mean(pH_surf),
+            intensity = 7.75 - mean_pH,
+            severity = intensity*duration_days,
+            .groups = "drop")
+endcen_pH_mpa_summary <- endcen_pH_event_summary %>%
+  group_by(File) %>%
+  summarise(num_event = n(),
+            mean_event_duration = mean(duration_days),
+            max_event_duration = max(duration_days),
+            mean_event_mean_pH = mean(mean_pH),
+            mean_event_intensity = mean(intensity),
+            mean_event_severity = mean(severity)) %>% 
+  merge(mpa_centroids, by = "File")
+#total days below threshold + avg ph below threhsold per mpa
+endcen_pH_mpa_summary2 <- endcen_pH_events %>%
+  filter(is_pH_low == TRUE) %>%
+  group_by(File, Year) %>%
+  summarise(annual_days_belowthresh = n(),
+            annual_avg_ph_belowthresh = mean(pH_surf))
+endcen_pH_mpa_summary3 <- endcen_pH_mpa_summary2 %>%
+  group_by(File)%>%
+  summarise(meanannual_days_belowthresh = mean(annual_days_belowthresh),
+            meanannual_avg_pH_belowthresh = mean(annual_avg_ph_belowthresh)) %>% 
+  mutate(period = "endcen") %>%
+  merge(endcen_pH_mpa_summary, by = "File")   
+
+
+#merging pH event hist/midcen/endcen
+pH_event <- full_join(historic_pH_mpa_summary3, midcen_pH_mpa_summary3) %>%
+  full_join(endcen_pH_mpa_summary3)
+```
+
+```{r}
+historic_DO_events <- mpa_historic %>% 
+  mutate(is_DO_low = DO_mgL < 4.6,
+         DO_event = label_events(is_DO_low)) 
+historic_DO_event_summary <- historic_DO_events %>% 
+  drop_na(DO_event) %>% 
+  group_by(File, DO_event) %>% 
+  summarize(duration_days = n(),
+            event_begin = min(Date),
+            mean_DO = mean(DO_mgL),
+            intensity = 4.6 - mean_DO,
+            severity = intensity*duration_days,
+            .groups = "drop")
+historic_DO_mpa_summary <- historic_DO_event_summary %>%
+  group_by(File) %>%
+  summarise(histDO_num_event = n(),
+            histDO_mean_event_duration = mean(duration_days),
+            histDO_max_event_duration = max(duration_days),
+            histDO_mean_event_mean_DO = mean(mean_DO),
+            histDO_mean_event_intensity = mean(intensity),
+            histDO_mean_event_severity = mean(severity)) %>% 
+  merge(mpa_centroids, by = "File")
+#total days below threshold + avg DO below threhsold per mpa
+historic_DO_mpa_summary2 <- historic_DO_events %>%
+  filter(is_DO_low == TRUE) %>%
+  group_by(File, Year) %>%
+  summarise(histDO_annual_days_belowthresh = n(),
+            histDO_annual_avg_DO_belowthresh = mean(DO_mgL))
+historic_DO_mpa_summary3 <- historic_DO_mpa_summary2 %>%
+  group_by(File)%>%
+  summarise(histDO_meanannual_days_belowthresh = mean(histDO_annual_days_belowthresh),
+            histDO_meanannual_avg_DO_belowthresh = mean(histDO_annual_avg_DO_belowthresh)) %>%
+  merge(historic_DO_mpa_summary, by = "File") 
+
+#midcen =====================================================================================
+
+midcen_DO_events <- mpa_midcen %>% 
+  mutate(is_DO_low = DO_mgL < 4.6,
+         DO_event = label_events(is_DO_low)) 
+midcen_DO_event_summary <- midcen_DO_events %>% 
+  drop_na(DO_event) %>% 
+  group_by(File, DO_event) %>% 
+  summarize(duration_days = n(),
+            event_begin = min(Date),
+            mean_DO = mean(DO_mgL),
+            intensity = 4.6 - mean_DO,
+            severity = intensity*duration_days,
+            .groups = "drop")
+midcen_DO_mpa_summary <- midcen_DO_event_summary %>%
+  group_by(File) %>%
+  summarise(midcenDO_num_event = n(),
+            midcenDO_mean_event_duration = mean(duration_days),
+            midcenDO_max_event_duration = max(duration_days),
+            midcenDO_mean_event_mean_DO = mean(mean_DO),
+            midcenDO_mean_event_intensity = mean(intensity),
+            midcenDO_mean_event_severity = mean(severity)) %>% 
+  merge(mpa_centroids, by = "File")
+#total days below threshold + avg DO below threhsold per mpa
+midcen_DO_mpa_summary2 <- midcen_DO_events %>%
+  filter(is_DO_low == TRUE) %>%
+  group_by(File, Year) %>%
+  summarise(midcenDO_annual_days_belowthresh = n(),
+            midcenDO_annual_avg_DO_belowthresh = mean(DO_mgL))
+midcen_DO_mpa_summary3 <- midcen_DO_mpa_summary2 %>%
+  group_by(File)%>%
+  summarise(midcenDO_meanannual_days_belowthresh = mean(midcenDO_annual_days_belowthresh),
+            midcenDO_meanannual_avg_DO_belowthresh = mean(midcenDO_annual_avg_DO_belowthresh)) %>%
+  merge(midcen_DO_mpa_summary, by = "File") 
+
+#endcen =====================================================================================
+
+endcen_DO_events <- mpa_endcen %>% 
+  mutate(is_DO_low = DO_mgL < 4.6,
+         DO_event = label_events(is_DO_low)) 
+endcen_DO_event_summary <- endcen_DO_events %>% 
+  drop_na(DO_event) %>% 
+  group_by(File, DO_event) %>% 
+  summarize(duration_days = n(),
+            event_begin = min(Date),
+            mean_DO = mean(DO_mgL),
+            intensity = 4.6 - mean_DO,
+            severity = intensity*duration_days,
+            .groups = "drop")
+endcen_DO_mpa_summary <- endcen_DO_event_summary %>%
+  group_by(File) %>%
+  summarise(endcenDO_num_event = n(),
+            endcenDO_mean_event_duration = mean(duration_days),
+            endcenDO_max_event_duration = max(duration_days),
+            endcenDO_mean_event_mean_DO = mean(mean_DO),
+            endcenDO_mean_event_intensity = mean(intensity),
+            endcenDO_mean_event_severity = mean(severity)) %>% 
+  merge(mpa_centroids, by = "File")
+#total days below threshold + avg DO below threhsold per mpa
+endcen_DO_mpa_summary2 <- endcen_DO_events %>%
+  filter(is_DO_low == TRUE) %>%
+  group_by(File, Year) %>%
+  summarise(endcenDO_annual_days_belowthresh = n(),
+            endcenDO_annual_avg_DO_belowthresh = mean(DO_mgL))
+endcen_DO_mpa_summary3 <- endcen_DO_mpa_summary2 %>%
+  group_by(File)%>%
+  summarise(endcenDO_meanannual_days_belowthresh = mean(endcenDO_annual_days_belowthresh),
+            endcenDO_meanannual_avg_DO_belowthresh = mean(endcenDO_annual_avg_DO_belowthresh)) %>%
+  merge(endcen_DO_mpa_summary, by = "File") 
+
+
+#merging DO event hist/midcen/endcen
+DO_event <- full_join(historic_DO_mpa_summary3, midcen_DO_mpa_summary3) %>%
+  full_join(endcen_DO_mpa_summary3)
+```
+
+## Anomalous temp analysis
+
+Take climatological average for every day and climatological SD in a sliding 30 day window to figure out temperature deviations
+
+```{r}
+#historic ===================================================================================
+#Historical climatology = mpa_historic_climatology. Append this to historic T dataset
+mpa_historic_climatology_select <- mpa_historic_climatology %>%
+  select(-pH_clim, -DO_clim) %>%
+  merge(mpa_historic, by = c("File", "Month"))
+
+historic_temp_events <- mpa_historic_climatology_select %>% 
+  mutate(is_temp_high = T_surf > (T_clim + 2*T_clim_sd),
+         temp_event = label_events(is_temp_high)) 
+historic_temp_event_summary <- historic_temp_events %>% 
+  drop_na(temp_event) %>% 
+  group_by(File, temp_event) %>% 
+  summarize(duration_days = n(),
+            event_begin = min(Date),
+            mean_temp = mean(T_surf),
+            intensity = T_surf - (T_clim + 2*T_clim_sd),
+            severity = intensity*duration_days,
+            .groups = "drop")
+historic_temp_mpa_summary <- historic_temp_event_summary %>%
+  group_by(File) %>%
+  summarise(histT_num_event = n(),
+         histT_mean_event_duration = mean(duration_days),
+         histT_max_event_duration = max(duration_days),
+         histT_mean_event_mean_pH = mean(mean_temp),
+         histT_mean_event_intensity = mean(intensity),
+         histT_mean_event_severity = mean(severity)) %>% 
+  merge(mpa_centroids, by = "File")
+#total days below threshold + avg ph below threhsold per mpa
+historic_temp_mpa_summary2 <- historic_temp_events %>%
+  filter(is_temp_high == TRUE) %>%
+  group_by(File, Year) %>%
+  summarise(histT_annual_days_belowthresh = n(),
+            histT_annual_avg_temp_belowthresh = mean(T_surf))
+historic_temp_mpa_summary3 <- historic_temp_mpa_summary2 %>%
+  group_by(File)%>%
+  summarise(histT_meanannual_days_belowthresh = mean(histT_annual_days_belowthresh),
+            histT_meanannual_avg_T_belowthresh = mean(histT_annual_avg_temp_belowthresh)) %>%
+  merge(historic_temp_mpa_summary, by = "File") 
+
+
+#midcen ===================================================================================
+#Historical climatology = mpa_historic_climatology. Append historical clim and SD to midcen T dataset
+mpa_midcen_climatology_select <- mpa_historic_climatology %>%
+  select(-pH_clim, -DO_clim) %>%
+  merge(mpa_midcen, by = c("File", "Month"))
+
+midcen_temp_events <- mpa_midcen_climatology_select %>% 
+  mutate(is_temp_high = T_surf > (T_clim + 2*T_clim_sd),
+         temp_event = label_events(is_temp_high)) 
+midcen_temp_event_summary <- midcen_temp_events %>% 
+  drop_na(temp_event) %>% 
+  group_by(File, temp_event) %>% 
+  summarize(duration_days = n(),
+            event_begin = min(Date),
+            mean_temp = mean(T_surf),
+            intensity = T_surf - (T_clim + 2*T_clim_sd),
+            severity = intensity*duration_days,
+            .groups = "drop")
+midcen_temp_mpa_summary <- midcen_temp_event_summary %>%
+  group_by(File) %>%
+  summarise(midcenT_num_event = n(),
+         midcenT_mean_event_duration = mean(duration_days),
+         midcenT_max_event_duration = max(duration_days),
+         midcenT_mean_event_mean_pH = mean(mean_temp),
+         midcenT_mean_event_intensity = mean(intensity),
+         midcenT_mean_event_severity = mean(severity)) %>% 
+  merge(mpa_centroids, by = "File")
+#total days below threshold + avg ph below threhsold per mpa
+midcen_temp_mpa_summary2 <- midcen_temp_events %>%
+  filter(is_temp_high == TRUE) %>%
+  group_by(File, Year) %>%
+  summarise(midcenT_annual_days_belowthresh = n(),
+            midcenT_annual_avg_temp_belowthresh = mean(T_surf))
+midcen_temp_mpa_summary3 <- midcen_temp_mpa_summary2 %>%
+  group_by(File)%>%
+  summarise(midcenT_meanannual_days_belowthresh = mean(midcenT_annual_days_belowthresh),
+            midcenT_meanannual_avg_T_belowthresh = mean(midcenT_annual_avg_temp_belowthresh)) %>%
+  merge(midcen_temp_mpa_summary, by = "File") 
+
+#endcen ===================================================================================
+#Historical climatology = mpa_historic_climatology. Append historical clim and SD to endcen T dataset
+mpa_endcen_climatology_select <- mpa_historic_climatology %>%
+  select(-pH_clim, -DO_clim) %>%
+  merge(mpa_endcen, by = c("File", "Month"))
+
+endcen_temp_events <- mpa_endcen_climatology_select %>% 
+  mutate(is_temp_high = T_surf > (T_clim + 2*T_clim_sd),
+         temp_event = label_events(is_temp_high)) 
+endcen_temp_event_summary <- endcen_temp_events %>% 
+  drop_na(temp_event) %>% 
+  group_by(File, temp_event) %>% 
+  summarize(duration_days = n(),
+            event_begin = min(Date),
+            mean_temp = mean(T_surf),
+            intensity = T_surf - (T_clim + 2*T_clim_sd),
+            severity = intensity*duration_days,
+            .groups = "drop")
+endcen_temp_mpa_summary <- endcen_temp_event_summary %>%
+  group_by(File) %>%
+  summarise(endcenT_num_event = n(),
+            endcenT_mean_event_duration = mean(duration_days),
+            endcenT_max_event_duration = max(duration_days),
+            endcenT_mean_event_mean_pH = mean(mean_temp),
+            endcenT_mean_event_intensity = mean(intensity),
+            endcenT_mean_event_severity = mean(severity)) %>% 
+  merge(mpa_centroids, by = "File")
+#total days below threshold + avg ph below threhsold per mpa
+endcen_temp_mpa_summary2 <- endcen_temp_events %>%
+  filter(is_temp_high == TRUE) %>%
+  group_by(File, Year) %>%
+  summarise(endcenT_annual_days_belowthresh = n(),
+            endcenT_annual_avg_temp_belowthresh = mean(T_surf))
+endcen_temp_mpa_summary3 <- endcen_temp_mpa_summary2 %>%
+  group_by(File)%>%
+  summarise(endcenT_meanannual_days_belowthresh = mean(endcenT_annual_days_belowthresh),
+            endcenT_meanannual_avg_T_belowthresh = mean(endcenT_annual_avg_temp_belowthresh)) %>%
+  merge(endcen_temp_mpa_summary, by = "File") 
+
+#merging temp event hist/midcen/endcen
+temp_event <- full_join(historic_temp_mpa_summary3, midcen_temp_mpa_summary3) %>%
+  full_join(endcen_temp_mpa_summary3)
+
+```
+
+```{r}
+#intensity/severity/duration figs
+
+historic_temp_events %>% 
+  left_join(historic_temp_event_summary, by = c("File", "temp_event")) %>% 
+  filter(NAME == "Ano Nuevo SMR") %>% 
+  ggplot(aes(julianday, Year, fill = intensity)) +
+  geom_tile() +
+  scale_fill_distiller(palette = "YlOrRd", direction = 1, na.value = "skyblue") +
+  theme_classic()
+
+midcen_temp_events %>% 
+  left_join(midcen_temp_event_summary, by = c("File", "temp_event")) %>% 
+  filter(NAME == "Ano Nuevo SMR") %>% 
+  ggplot(aes(julianday, Year, fill = intensity)) +
+  geom_tile() +
+  scale_fill_distiller(palette = "YlOrRd", direction = 1, na.value = "skyblue") +
+  theme_classic()
+
+endcen_temp_events %>% 
+  left_join(endcen_temp_event_summary, by = c("File", "temp_event")) %>% 
+  filter(NAME == "Ano Nuevo SMR") %>% 
+  ggplot(aes(julianday, Year, fill = intensity)) +
+  geom_tile() +
+  scale_fill_distiller(palette = "YlOrRd", direction = 1, na.value = "skyblue") +
+  theme_classic()
+```
+
+## Anom contd: regressions
+
+Regressions of historical env var on x axis and mid/end cen on y axis, each point is an MPA. to visualize bright spots and hot spots. Need to figure out how to normalize data
+
+```{r}
+#first, for mean temp. historical vs. mid cen. next we can do historical vs. diff btwn historical and mid.
+
+sum_diff_normalized <- sum_diff %>%
+  mutate(historic_T_mean_norm = historic_T_mean/log(historic_T_mean),
+         middiff_T_mean_norm = mid_diff_T_mean/log(mid_diff_T_mean))
+
+#historic pH_mean vs. midcen pH_mean
+ggplot(data = sum_diff, aes(x = historic_pH_mean, y = midcen_pH_mean)) +
+  stat_poly_line() +
+  stat_poly_eq(use_label(c("eq", "R2"))) +
+  geom_point() +
+  theme_classic() +
+  labs(y= "Midcen pH_mean", x = "Historic pH_mean") +
+  ggtitle("Historic vs. midcen pH_mean")
+
+#historic pH_mean vs. midcen pH_mean
+ggplot(data = sum_diff, aes(x = historic_pH_mean, y = midcen_pH_mean)) +
+  stat_poly_line() +
+  stat_poly_eq(use_label(c("eq", "R2"))) +
+  geom_point() +
+  theme_classic() +
+  labs(y= "Midcen pH_mean", x = "Historic pH_mean") +
+  ggtitle("Historic vs. midcen pH_mean")
+
+
+```
