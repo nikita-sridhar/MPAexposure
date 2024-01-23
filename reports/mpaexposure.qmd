@@ -37,6 +37,8 @@ library(gplots)
 library(ggpmisc)
 ```
 
+Load MPA name file and merge with model projection. Add time periods.
+
 ```{r}
 #| label: load_data
 #| message: false
@@ -51,11 +53,16 @@ mpa <- read_csv(here("data/processeddata/model/IPSLmpa.csv")) %>%
   mutate(period = case_when((Year <= 2020) ~ "historic", 
                            (Year %in% c(2040:2060)) ~ "midcen",
                            (Year %in% c(2080:2100)) ~ "endcen")) %>%
-  select(-T_bot, -DO_bot, -pH_bot,-DO_surf,-DO_mmolL) 
+  select(-T_bot, -DO_bot, -pH_bot,-DO_surf,-DO_mmolL) %>%
+  rename(Temp = T_surf,
+         DO = DO_mgL,
+         pH = pH_surf)
 mpa$File <- substr(mpa$File, 1, nchar(mpa$File)-4)
 
 
 ```
+
+Add regions
 
 ```{r}
 #| label: regions
@@ -95,43 +102,28 @@ Find mean and lower 10th percentile of pH, temp, and DO for each MPA
 ```{r}
 #| label: summary_stats
 
-sum_historic <- mpa_historic %>% 
+sum <- mpa %>%
   group_by(File) %>% 
-  summarize(across(c(T_surf, DO_mgL, pH_surf), 
-                   list(mean = mean, quantile = ~ quantile(.x, 0.1)))) %>% 
-  rename(T_mean = T_surf_mean, 
-         DO_mean = DO_mgL_mean, 
-         pH_mean = pH_surf_mean, 
-         T_low10 = T_surf_quantile, 
-         DO_low10 = DO_mgL_quantile, 
-         pH_low10 = pH_surf_quantile) 
-sum_historic <- merge(sum_historic, mpa_centroids,  by = "File")
+  summarize(across(c(Temp, DO, pH), 
+                   list(mean = mean, 
+                        low10 = ~ quantile(.x, 0.1),
+                        high10 = ~quantile(.x,0.9)))) %>% 
+    merge(mpa_centroids,  by = "File")
 
+#function to create summary stats for diff time periods
+create_summmary_stats <- function(x){
+  summary <- mpa %>%
+    filter(period == x) %>%
+    group_by(File) %>% 
+  summarize(across(c(Temp, DO, pH), 
+                   list(mean = mean, low10 = ~ quantile(.x, 0.1)))) %>% 
+    merge(mpa_centroids,  by = "File")
+}
 
-sum_midcen <- mpa_midcen %>% 
-  group_by(File) %>% 
-  summarize(across(c(T_surf, DO_mgL, pH_surf), 
-                   list(mean = mean, quantile = ~ quantile(.x, 0.1)))) %>% 
-  rename(T_mean = T_surf_mean, 
-         DO_mean = DO_mgL_mean, 
-         pH_mean = pH_surf_mean, 
-         T_low10 = T_surf_quantile, 
-         DO_low10 = DO_mgL_quantile, 
-         pH_low10 = pH_surf_quantile)
-sum_midcen <- merge(sum_midcen, mpa_centroids,  by = "File")
+sum_historic <- create_summmary_stats("historic")
+sum_midcen <- create_summmary_stats("midcen")
+sum_endcen <- create_summmary_stats("endcen")
 
-
-sum_endcen <- mpa_endcen %>% 
-  group_by(File) %>% 
-  summarize(across(c(T_surf, DO_mgL, pH_surf), 
-                   list(mean = mean, quantile = ~ quantile(.x, 0.1)))) %>% 
-  rename(T_mean = T_surf_mean, 
-         DO_mean = DO_mgL_mean, 
-         pH_mean = pH_surf_mean, 
-         T_low10 = T_surf_quantile, 
-         DO_low10 = DO_mgL_quantile, 
-         pH_low10 = pH_surf_quantile)
-sum_endcen <- merge(sum_endcen, mpa_centroids,  by = "File")
 ```
 
 ## Calculate seasonal variation
@@ -142,15 +134,25 @@ Create a climatology (Jan averaged over every year), so each MPA has one value p
 #| label: clim_SD
 #| message: false
 
+#calculate seasonal SD for each MPA
+mpa_climatology <- mpa %>%
+  group_by(File, Month, period) %>%
+    summarise(T_clim = mean(Temp), 
+              T_clim_sd = sd(Temp), 
+              pH_clim = mean(pH), 
+              DO_clim =   mean(DO))
+
+
+#individual files per time period
 mpa_historic_climatology <- mpa_historic %>%
   group_by(File, Month) %>%
-  summarise(T_clim = mean(T_surf), T_clim_sd = sd(T_surf), pH_clim = mean(pH_surf), DO_clim =   mean(DO_mgL))
+  summarise(T_clim = mean(Temp), T_clim_sd = sd(Temp), pH_clim = mean(pH), DO_clim =   mean(DO))
 mpa_midcen_climatology <- mpa_midcen %>%
   group_by(File, Month) %>%
-  summarise(T_clim = mean(T_surf), pH_clim = mean(pH_surf), DO_clim = mean(DO_mgL))
+  summarise(T_clim = mean(Temp), pH_clim = mean(pH), DO_clim = mean(DO))
 mpa_endcen_climatology <- mpa_endcen %>%
   group_by(File, Month) %>%
-  summarise(T_clim = mean(T_surf), pH_clim = mean(pH_surf), DO_clim = mean(DO_mgL))
+  summarise(T_clim = mean(Temp), pH_clim = mean(pH), DO_clim = mean(DO))
 
 historic_seasonalSD <- mpa_historic_climatology %>%
   group_by(File) %>%
@@ -199,7 +201,7 @@ x_out <- (1:365)
 x_out <- x_out[!(x_out %in% x_in)] #removing the days of the year we already have values for
 ```
 
-Interpolation for temp:
+Interpolation for temp ,historic time period:
 
 ```{r,warning=FALSE, message=FALSE, results='hide'}
 #| label: inter_temp
@@ -226,6 +228,12 @@ historic_tempdata <- historic_tempdata %>%
   rename(File = mpas)
 
 #Later we create a julian day variable in our OG mpa dataset, to merge this to all the rows on the dataset by filename and day and then have the mean daily climatological value for each row. 
+
+```
+
+Interpolation for temp, mid century time period
+
+```{r}
 #MIDCEN
 for (i in 1:length(mpaslist)){
   print(i)
@@ -245,6 +253,11 @@ midcen_tempdata = data.frame(mpas, julianday,T_clim)
 midcen_tempdata <- midcen_tempdata %>%
   rename(File = mpas)
 
+```
+
+Interpolation for temp, end century time period
+
+```{r}
 #ENDCEN
 for (i in 1:length(mpaslist)){
   print(i)
@@ -265,7 +278,7 @@ endcen_tempdata <- endcen_tempdata %>%
   rename(File = mpas)
 ```
 
-Interpolation for pH
+Interpolation for pH, historic time period
 
 ```{r, warning=FALSE, message=FALSE, results='hide'}
 #| label: inter_pH
@@ -290,6 +303,12 @@ historic_pHdata = data.frame(mpas, julianday,pH_clim)
 historic_pHdata <- historic_pHdata %>%
   rename(File = mpas)
 
+
+```
+
+Interpolation for pH, mid century time period
+
+```{r}
 #MIDCEN
 for (i in 1:length(mpaslist)){
   print(i)
@@ -307,6 +326,12 @@ for (i in 1:length(mpaslist)){
 midcen_pHdata = data.frame(mpas, julianday,pH_clim)
 midcen_pHdata <- midcen_pHdata %>%
   rename(File = mpas)
+
+```
+
+Interpolation for pH, end century time period
+
+```{r}
 
 #ENDCEN
 for (i in 1:length(mpaslist)){
@@ -418,21 +443,21 @@ endcen_merge <- merge(endcen_merge, endcen_pHdata, by = c("File", "julianday"))
 #subtract climatology . actual - clim
 #filtered for only upwelling months.
 historic_merge <- historic_merge %>%
-  mutate(noclim_T = T_surf - T_clim,
-         noclim_pH = pH_surf - pH_clim,
-         noclim_DO = DO_mgL - DO_clim) %>%
+  mutate(noclim_T = Temp - T_clim,
+         noclim_pH = pH - pH_clim,
+         noclim_DO = DO - DO_clim) %>%
   filter(Month == c(5,6,7,8,9))
 
 midcen_merge <- midcen_merge %>%
-  mutate(noclim_T = T_surf - T_clim,
-         noclim_pH = pH_surf - pH_clim,
-         noclim_DO = DO_mgL - DO_clim) %>%
+  mutate(noclim_T = Temp - T_clim,
+         noclim_pH = pH - pH_clim,
+         noclim_DO = DO - DO_clim) %>%
   filter(Month == c(5,6,7,8,9))
 
 endcen_merge <- endcen_merge %>%
-  mutate(noclim_T = T_surf - T_clim,
-         noclim_pH = pH_surf - pH_clim,
-         noclim_DO = DO_mgL - DO_clim) %>%
+  mutate(noclim_T = Temp - T_clim,
+         noclim_pH = pH - pH_clim,
+         noclim_DO = DO - DO_clim) %>%
   filter(Month == c(5,6,7,8,9))
 
 #find event based SD (removed clim)
@@ -946,14 +971,14 @@ label_events <- function(is_event) {
 #historic =================================================================================
 
 historic_pH_events <- mpa_historic %>% 
-  mutate(is_pH_low = pH_surf < 7.75,
+  mutate(is_pH_low = pH < 7.75,
          pH_event = label_events(is_pH_low)) 
 historic_pH_event_summary <- historic_pH_events %>% 
   drop_na(pH_event) %>% 
   group_by(File, pH_event) %>% 
   summarize(duration_days = n(),
             event_begin = min(Date),
-            mean_pH = mean(pH_surf),
+            mean_pH = mean(pH),
             intensity = 7.75 - mean_pH,
             severity = intensity*duration_days,
             .groups = "drop")
@@ -971,7 +996,7 @@ historic_pH_mpa_summary2 <- historic_pH_events %>%
   filter(is_pH_low == TRUE) %>%
   group_by(File, Year) %>%
   summarise(annual_days_belowthresh = n(),
-            annual_avg_ph_belowthresh = mean(pH_surf))
+            annual_avg_ph_belowthresh = mean(pH))
 historic_pH_mpa_summary3 <- historic_pH_mpa_summary2 %>%
   group_by(File)%>%
   summarise(meanannual_days_belowthresh = mean(annual_days_belowthresh),
@@ -982,14 +1007,14 @@ historic_pH_mpa_summary3 <- historic_pH_mpa_summary2 %>%
 #midcen =====================================================================================
 
 midcen_pH_events <- mpa_midcen %>% 
-  mutate(is_pH_low = pH_surf < 7.75,
+  mutate(is_pH_low = pH < 7.75,
          pH_event = label_events(is_pH_low)) 
 midcen_pH_event_summary <- midcen_pH_events %>% 
   drop_na(pH_event) %>% 
   group_by(File, pH_event) %>% 
   summarize(duration_days = n(),
             event_begin = min(Date),
-            mean_pH = mean(pH_surf),
+            mean_pH = mean(pH),
             intensity = 7.75 - mean_pH,
             severity = intensity*duration_days,
             .groups = "drop")
@@ -1007,7 +1032,7 @@ midcen_pH_mpa_summary2 <- midcen_pH_events %>%
   filter(is_pH_low == TRUE) %>%
   group_by(File, Year) %>%
   summarise(annual_days_belowthresh = n(),
-            annual_avg_ph_belowthresh = mean(pH_surf))
+            annual_avg_ph_belowthresh = mean(pH))
 midcen_pH_mpa_summary3 <- midcen_pH_mpa_summary2 %>%
   group_by(File)%>%
   summarise(meanannual_days_belowthresh = mean(annual_days_belowthresh),
@@ -1018,14 +1043,14 @@ midcen_pH_mpa_summary3 <- midcen_pH_mpa_summary2 %>%
 #endcen =====================================================================================
 
 endcen_pH_events <- mpa_endcen %>% 
-  mutate(is_pH_low = pH_surf < 7.75,
+  mutate(is_pH_low = pH < 7.75,
          pH_event = label_events(is_pH_low)) 
 endcen_pH_event_summary <- endcen_pH_events %>% 
   drop_na(pH_event) %>% 
   group_by(File, pH_event) %>% 
   summarize(duration_days = n(),
             event_begin = min(Date),
-            mean_pH = mean(pH_surf),
+            mean_pH = mean(pH),
             intensity = 7.75 - mean_pH,
             severity = intensity*duration_days,
             .groups = "drop")
@@ -1043,7 +1068,7 @@ endcen_pH_mpa_summary2 <- endcen_pH_events %>%
   filter(is_pH_low == TRUE) %>%
   group_by(File, Year) %>%
   summarise(annual_days_belowthresh = n(),
-            annual_avg_ph_belowthresh = mean(pH_surf))
+            annual_avg_ph_belowthresh = mean(pH))
 endcen_pH_mpa_summary3 <- endcen_pH_mpa_summary2 %>%
   group_by(File)%>%
   summarise(meanannual_days_belowthresh = mean(annual_days_belowthresh),
@@ -1059,14 +1084,14 @@ pH_event <- full_join(historic_pH_mpa_summary3, midcen_pH_mpa_summary3) %>%
 
 ```{r}
 historic_DO_events <- mpa_historic %>% 
-  mutate(is_DO_low = DO_mgL < 4.6,
+  mutate(is_DO_low = DO < 4.6,
          DO_event = label_events(is_DO_low)) 
 historic_DO_event_summary <- historic_DO_events %>% 
   drop_na(DO_event) %>% 
   group_by(File, DO_event) %>% 
   summarize(duration_days = n(),
             event_begin = min(Date),
-            mean_DO = mean(DO_mgL),
+            mean_DO = mean(DO),
             intensity = 4.6 - mean_DO,
             severity = intensity*duration_days,
             .groups = "drop")
@@ -1084,7 +1109,7 @@ historic_DO_mpa_summary2 <- historic_DO_events %>%
   filter(is_DO_low == TRUE) %>%
   group_by(File, Year) %>%
   summarise(histDO_annual_days_belowthresh = n(),
-            histDO_annual_avg_DO_belowthresh = mean(DO_mgL))
+            histDO_annual_avg_DO_belowthresh = mean(DO))
 historic_DO_mpa_summary3 <- historic_DO_mpa_summary2 %>%
   group_by(File)%>%
   summarise(histDO_meanannual_days_belowthresh = mean(histDO_annual_days_belowthresh),
@@ -1094,14 +1119,14 @@ historic_DO_mpa_summary3 <- historic_DO_mpa_summary2 %>%
 #midcen =====================================================================================
 
 midcen_DO_events <- mpa_midcen %>% 
-  mutate(is_DO_low = DO_mgL < 4.6,
+  mutate(is_DO_low = DO < 4.6,
          DO_event = label_events(is_DO_low)) 
 midcen_DO_event_summary <- midcen_DO_events %>% 
   drop_na(DO_event) %>% 
   group_by(File, DO_event) %>% 
   summarize(duration_days = n(),
             event_begin = min(Date),
-            mean_DO = mean(DO_mgL),
+            mean_DO = mean(DO),
             intensity = 4.6 - mean_DO,
             severity = intensity*duration_days,
             .groups = "drop")
@@ -1119,7 +1144,7 @@ midcen_DO_mpa_summary2 <- midcen_DO_events %>%
   filter(is_DO_low == TRUE) %>%
   group_by(File, Year) %>%
   summarise(midcenDO_annual_days_belowthresh = n(),
-            midcenDO_annual_avg_DO_belowthresh = mean(DO_mgL))
+            midcenDO_annual_avg_DO_belowthresh = mean(DO))
 midcen_DO_mpa_summary3 <- midcen_DO_mpa_summary2 %>%
   group_by(File)%>%
   summarise(midcenDO_meanannual_days_belowthresh = mean(midcenDO_annual_days_belowthresh),
@@ -1129,14 +1154,14 @@ midcen_DO_mpa_summary3 <- midcen_DO_mpa_summary2 %>%
 #endcen =====================================================================================
 
 endcen_DO_events <- mpa_endcen %>% 
-  mutate(is_DO_low = DO_mgL < 4.6,
+  mutate(is_DO_low = DO < 4.6,
          DO_event = label_events(is_DO_low)) 
 endcen_DO_event_summary <- endcen_DO_events %>% 
   drop_na(DO_event) %>% 
   group_by(File, DO_event) %>% 
   summarize(duration_days = n(),
             event_begin = min(Date),
-            mean_DO = mean(DO_mgL),
+            mean_DO = mean(DO),
             intensity = 4.6 - mean_DO,
             severity = intensity*duration_days,
             .groups = "drop")
@@ -1154,7 +1179,7 @@ endcen_DO_mpa_summary2 <- endcen_DO_events %>%
   filter(is_DO_low == TRUE) %>%
   group_by(File, Year) %>%
   summarise(endcenDO_annual_days_belowthresh = n(),
-            endcenDO_annual_avg_DO_belowthresh = mean(DO_mgL))
+            endcenDO_annual_avg_DO_belowthresh = mean(DO))
 endcen_DO_mpa_summary3 <- endcen_DO_mpa_summary2 %>%
   group_by(File)%>%
   summarise(endcenDO_meanannual_days_belowthresh = mean(endcenDO_annual_days_belowthresh),
@@ -1179,15 +1204,15 @@ mpa_historic_climatology_select <- mpa_historic_climatology %>%
   merge(mpa_historic, by = c("File", "Month"))
 
 historic_temp_events <- mpa_historic_climatology_select %>% 
-  mutate(is_temp_high = T_surf > (T_clim + 2*T_clim_sd),
+  mutate(is_temp_high = Temp > (T_clim + 2*T_clim_sd),
          temp_event = label_events(is_temp_high)) 
 historic_temp_event_summary <- historic_temp_events %>% 
   drop_na(temp_event) %>% 
   group_by(File, temp_event) %>% 
   summarize(duration_days = n(),
             event_begin = min(Date),
-            mean_temp = mean(T_surf),
-            intensity = T_surf - (T_clim + 2*T_clim_sd),
+            mean_temp = mean(Temp),
+            intensity = Temp - (T_clim + 2*T_clim_sd),
             severity = intensity*duration_days,
             .groups = "drop")
 historic_temp_mpa_summary <- historic_temp_event_summary %>%
@@ -1204,7 +1229,7 @@ historic_temp_mpa_summary2 <- historic_temp_events %>%
   filter(is_temp_high == TRUE) %>%
   group_by(File, Year) %>%
   summarise(histT_annual_days_belowthresh = n(),
-            histT_annual_avg_temp_belowthresh = mean(T_surf))
+            histT_annual_avg_temp_belowthresh = mean(Temp))
 historic_temp_mpa_summary3 <- historic_temp_mpa_summary2 %>%
   group_by(File)%>%
   summarise(histT_meanannual_days_belowthresh = mean(histT_annual_days_belowthresh),
@@ -1219,15 +1244,15 @@ mpa_midcen_climatology_select <- mpa_historic_climatology %>%
   merge(mpa_midcen, by = c("File", "Month"))
 
 midcen_temp_events <- mpa_midcen_climatology_select %>% 
-  mutate(is_temp_high = T_surf > (T_clim + 2*T_clim_sd),
+  mutate(is_temp_high = Temp > (T_clim + 2*T_clim_sd),
          temp_event = label_events(is_temp_high)) 
 midcen_temp_event_summary <- midcen_temp_events %>% 
   drop_na(temp_event) %>% 
   group_by(File, temp_event) %>% 
   summarize(duration_days = n(),
             event_begin = min(Date),
-            mean_temp = mean(T_surf),
-            intensity = T_surf - (T_clim + 2*T_clim_sd),
+            mean_temp = mean(Temp),
+            intensity = Temp - (T_clim + 2*T_clim_sd),
             severity = intensity*duration_days,
             .groups = "drop")
 midcen_temp_mpa_summary <- midcen_temp_event_summary %>%
@@ -1244,7 +1269,7 @@ midcen_temp_mpa_summary2 <- midcen_temp_events %>%
   filter(is_temp_high == TRUE) %>%
   group_by(File, Year) %>%
   summarise(midcenT_annual_days_belowthresh = n(),
-            midcenT_annual_avg_temp_belowthresh = mean(T_surf))
+            midcenT_annual_avg_temp_belowthresh = mean(Temp))
 midcen_temp_mpa_summary3 <- midcen_temp_mpa_summary2 %>%
   group_by(File)%>%
   summarise(midcenT_meanannual_days_belowthresh = mean(midcenT_annual_days_belowthresh),
@@ -1258,15 +1283,15 @@ mpa_endcen_climatology_select <- mpa_historic_climatology %>%
   merge(mpa_endcen, by = c("File", "Month"))
 
 endcen_temp_events <- mpa_endcen_climatology_select %>% 
-  mutate(is_temp_high = T_surf > (T_clim + 2*T_clim_sd),
+  mutate(is_temp_high = Temp > (T_clim + 2*T_clim_sd),
          temp_event = label_events(is_temp_high)) 
 endcen_temp_event_summary <- endcen_temp_events %>% 
   drop_na(temp_event) %>% 
   group_by(File, temp_event) %>% 
   summarize(duration_days = n(),
             event_begin = min(Date),
-            mean_temp = mean(T_surf),
-            intensity = T_surf - (T_clim + 2*T_clim_sd),
+            mean_temp = mean(Temp),
+            intensity = Temp - (T_clim + 2*T_clim_sd),
             severity = intensity*duration_days,
             .groups = "drop")
 endcen_temp_mpa_summary <- endcen_temp_event_summary %>%
@@ -1283,7 +1308,7 @@ endcen_temp_mpa_summary2 <- endcen_temp_events %>%
   filter(is_temp_high == TRUE) %>%
   group_by(File, Year) %>%
   summarise(endcenT_annual_days_belowthresh = n(),
-            endcenT_annual_avg_temp_belowthresh = mean(T_surf))
+            endcenT_annual_avg_temp_belowthresh = mean(Temp))
 endcen_temp_mpa_summary3 <- endcen_temp_mpa_summary2 %>%
   group_by(File)%>%
   summarise(endcenT_meanannual_days_belowthresh = mean(endcenT_annual_days_belowthresh),
