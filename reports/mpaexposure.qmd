@@ -56,7 +56,10 @@ mpa <- read_csv(here("data/processeddata/model/IPSLmpa.csv")) %>%
   select(-T_bot, -DO_bot, -pH_bot,-DO_surf,-DO_mmolL) %>%
   rename(Temp = T_surf,
          DO = DO_mgL,
-         pH = pH_surf)
+         pH = pH_surf) %>%
+  mutate(Date = make_date(Year, Month, Day)) %>%
+  mutate(julianday = yday(Date))
+
 mpa$File <- substr(mpa$File, 1, nchar(mpa$File)-4)
 
 
@@ -87,6 +90,7 @@ channel <- c("Anacapa Island FMCA", "Anacapa Island FMR", "Anacapa Island SMCA",
 mpa_centroids$region[mpa_centroids$NAME %in% channel]  <- "channel" 
 mpa <- merge(mpa, mpa_centroids,  by = "File")
 
+#DELETE AFTER CHECKING
 mpa_historic <- mpa %>%
   filter(period == "historic")
 mpa_midcen <- mpa %>%
@@ -103,13 +107,14 @@ Find mean and lower 10th percentile of pH, temp, and DO for each MPA
 #| label: summary_stats
 
 sum <- mpa %>%
-  group_by(File) %>% 
+  group_by(File, period) %>% 
   summarize(across(c(Temp, DO, pH), 
                    list(mean = mean, 
                         low10 = ~ quantile(.x, 0.1),
                         high10 = ~quantile(.x,0.9)))) %>% 
     merge(mpa_centroids,  by = "File")
 
+#DELETE AFTER CHECKING
 #function to create summary stats for diff time periods
 create_summmary_stats <- function(x){
   summary <- mpa %>%
@@ -134,16 +139,21 @@ Create a climatology (Jan averaged over every year), so each MPA has one value p
 #| label: clim_SD
 #| message: false
 
-#calculate seasonal SD for each MPA
+#calculate climatology for each MPA for each time period
 mpa_climatology <- mpa %>%
   group_by(File, Month, period) %>%
     summarise(T_clim = mean(Temp), 
-              T_clim_sd = sd(Temp), 
               pH_clim = mean(pH), 
               DO_clim =   mean(DO))
+#calculate seasonal SD 
+seasonal_SD <- mpa_climatology %>%
+  group_by(File, period) %>%
+  summarise(T_seasonalSD = sd(T_clim),
+            pH_seasonalSD = sd(pH_clim),
+            DO_seasonalSD = sd(DO_clim))
 
 
-#individual files per time period
+#individual files per time period 
 mpa_historic_climatology <- mpa_historic %>%
   group_by(File, Month) %>%
   summarise(T_clim = mean(Temp), T_clim_sd = sd(Temp), pH_clim = mean(pH), DO_clim =   mean(DO))
@@ -182,7 +192,6 @@ Setup for interpolation:
 #| message: false
 #| warning: false
 
-
 #First: Need to create a day1 and day365 proxies. Approx function can only interpolate not extrapolate so without this, you can interpolate days 1-14 and 350-365. #below creates empty vectors as big as we need (365 days per mpa) for each variable and each mpa. julianday is dates 1-365 as many mpa times
 
 mpaslist = unique(mpa$File) 
@@ -207,6 +216,9 @@ Interpolation for temp ,historic time period:
 #| label: inter_temp
 #| message: false
 #| warning: false
+
+mpa_historic_climatology <- mpa_climatology %>%
+  filter(period == "historic")
 
 #HISTORIC
 for (i in 1:length(mpaslist)){
@@ -234,6 +246,10 @@ historic_tempdata <- historic_tempdata %>%
 Interpolation for temp, mid century time period
 
 ```{r}
+
+mpa_midcen_climatology <- mpa_climatology %>%
+  filter(period == "midcen")
+
 #MIDCEN
 for (i in 1:length(mpaslist)){
   print(i)
@@ -258,6 +274,9 @@ midcen_tempdata <- midcen_tempdata %>%
 Interpolation for temp, end century time period
 
 ```{r}
+mpa_endcen_climatology <- mpa_climatology %>%
+  filter(period == "endcen")
+
 #ENDCEN
 for (i in 1:length(mpaslist)){
   print(i)
@@ -278,7 +297,7 @@ endcen_tempdata <- endcen_tempdata %>%
   rename(File = mpas)
 ```
 
-Interpolation for pH, historic time period
+Interpolation for pH
 
 ```{r, warning=FALSE, message=FALSE, results='hide'}
 #| label: inter_pH
@@ -303,12 +322,6 @@ historic_pHdata = data.frame(mpas, julianday,pH_clim)
 historic_pHdata <- historic_pHdata %>%
   rename(File = mpas)
 
-
-```
-
-Interpolation for pH, mid century time period
-
-```{r}
 #MIDCEN
 for (i in 1:length(mpaslist)){
   print(i)
@@ -327,12 +340,6 @@ midcen_pHdata = data.frame(mpas, julianday,pH_clim)
 midcen_pHdata <- midcen_pHdata %>%
   rename(File = mpas)
 
-```
-
-Interpolation for pH, end century time period
-
-```{r}
-
 #ENDCEN
 for (i in 1:length(mpaslist)){
   print(i)
@@ -350,6 +357,8 @@ for (i in 1:length(mpaslist)){
 endcen_pHdata = data.frame(mpas, julianday,pH_clim)
 endcen_pHdata <- endcen_pHdata %>%
   rename(File = mpas)
+
+
 ```
 
 Interpolation for DO:
@@ -416,16 +425,14 @@ Merge interpolated values to MPA dataset and find SD
 ```{r}
 #| label: inter_merge
 
-#adding julianday variable
-mpa_historic <- mpa_historic %>%
-  mutate(Date = make_date(Year, Month, Day)) %>%
-  mutate(julianday = yday(Date))
-mpa_midcen <- mpa_midcen %>%
-  mutate(Date = make_date(Year, Month, Day)) %>%
-  mutate(julianday = yday(Date))
-mpa_endcen <- mpa_endcen %>%
-  mutate(Date = make_date(Year, Month, Day)) %>%
-  mutate(julianday = yday(Date))
+
+
+
+
+
+
+
+
 
 #mpa merge to ph/do/temp
 historic_merge <- merge(mpa_historic, historic_tempdata, by = c("File", "julianday"))
@@ -617,6 +624,14 @@ invert_col <- colorRampPalette(rev(brewer.pal(9,"YlOrRd")))(256)
 Heatmaps across all regions for T summary stats
 
 ```{r}
+
+
+
+
+create_heatmap <- function(){
+  
+}
+
 #T mean all regions
 sum_diff_T_mean <- sum_diff[order(sum_diff$degy.x),] %>%
   select(NAME,historic_T_mean, midcen_T_mean, endcen_T_mean) 
