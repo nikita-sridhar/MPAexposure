@@ -237,7 +237,9 @@ for (i in 1:length(mpaslist)){
 
 historic_tempdata = data.frame(mpas, julianday,T_clim)
 historic_tempdata <- historic_tempdata %>%
-  rename(File = mpas)
+  rename(File = mpas) %>%
+  mutate(period = "historic") %>%
+  rename(interp_temp = T_clim)
 
 #Later we create a julian day variable in our OG mpa dataset, to merge this to all the rows on the dataset by filename and day and then have the mean daily climatological value for each row. 
 
@@ -267,7 +269,10 @@ for (i in 1:length(mpaslist)){
 
 midcen_tempdata = data.frame(mpas, julianday,T_clim)
 midcen_tempdata <- midcen_tempdata %>%
-  rename(File = mpas)
+  rename(File = mpas) %>%
+  mutate(period = "midcen") %>%
+  rename(interp_temp = T_clim)
+  
 
 ```
 
@@ -294,7 +299,9 @@ for (i in 1:length(mpaslist)){
 
 endcen_tempdata = data.frame(mpas, julianday,T_clim)
 endcen_tempdata <- endcen_tempdata %>%
-  rename(File = mpas)
+  rename(File = mpas) %>%
+  mutate(period = "endcen") %>%
+  rename(interp_temp = T_clim)
 ```
 
 Interpolation for pH
@@ -320,7 +327,9 @@ for (i in 1:length(mpaslist)){
 
 historic_pHdata = data.frame(mpas, julianday,pH_clim)
 historic_pHdata <- historic_pHdata %>%
-  rename(File = mpas)
+  rename(File = mpas) %>%
+  mutate(period = "historic") %>%
+  rename(interp_pH = pH_clim)
 
 #MIDCEN
 for (i in 1:length(mpaslist)){
@@ -338,7 +347,9 @@ for (i in 1:length(mpaslist)){
 
 midcen_pHdata = data.frame(mpas, julianday,pH_clim)
 midcen_pHdata <- midcen_pHdata %>%
-  rename(File = mpas)
+  rename(File = mpas) %>%
+  mutate(period = "midcen") %>%
+  rename(interp_pH = pH_clim)
 
 #ENDCEN
 for (i in 1:length(mpaslist)){
@@ -356,7 +367,9 @@ for (i in 1:length(mpaslist)){
 
 endcen_pHdata = data.frame(mpas, julianday,pH_clim)
 endcen_pHdata <- endcen_pHdata %>%
-  rename(File = mpas)
+  rename(File = mpas) %>%
+  mutate(period = "endcen") %>%
+  rename(interp_pH = pH_clim)
 
 
 ```
@@ -383,7 +396,9 @@ for (i in 1:length(mpaslist)){
 
 historic_DOdata = data.frame(mpas, julianday,DO_clim)
 historic_DOdata <- historic_DOdata %>%
-  rename(File = mpas)
+  rename(File = mpas) %>%
+  mutate(period = "historic") %>%
+  rename(interp_DO = DO_clim)
 
 #MIDCEN
 for (i in 1:length(mpaslist)){
@@ -400,7 +415,9 @@ for (i in 1:length(mpaslist)){
 
 midcen_DOdata = data.frame(mpas, julianday,DO_clim)
 midcen_DOdata <- midcen_DOdata %>%
-  rename(File = mpas)
+  rename(File = mpas) %>%
+  mutate(period = "midcen")  %>%
+  rename(interp_DO = DO_clim)
 
 #ENDCEN
 for (i in 1:length(mpaslist)){
@@ -417,7 +434,9 @@ for (i in 1:length(mpaslist)){
 
 endcen_DOdata = data.frame(mpas, julianday,DO_clim)
 endcen_DOdata <- endcen_DOdata %>%
-  rename(File = mpas)
+  rename(File = mpas) %>%
+  mutate(period = "endcen")  %>%
+  rename(interp_DO = DO_clim)
 ```
 
 Merge interpolated values to MPA dataset and find SD
@@ -425,11 +444,16 @@ Merge interpolated values to MPA dataset and find SD
 ```{r}
 #| label: inter_merge
 
+#I'm sorry to future Niki about the mess of above for loops ^^. Need to clean that up. In the meantime, outputted datasets from interpolation are combined back into one to clean up code from this point on. 
 
+interpolated_temp <- rbind(historic_tempdata,midcen_tempdata,endcen_tempdata)
+interpolated_pH <- rbind(historic_pHdata, midcen_pHdata, endcen_pHdata)
+interpolated_DO <- rbind(historic_DOdata, midcen_DOdata, endcen_DOdata)
 
-
-
-
+interpolated_mpa <- mpa %>%
+  merge(interpolated_temp, by = c("File", "julianday", "period")) %>%
+  merge(interpolated_pH, by = c("File", "julianday", "period")) %>%
+  merge(interpolated_DO, by = c("File", "julianday", "period"))
 
 
 
@@ -450,9 +474,9 @@ endcen_merge <- merge(endcen_merge, endcen_pHdata, by = c("File", "julianday"))
 #subtract climatology . actual - clim
 #filtered for only upwelling months.
 historic_merge <- historic_merge %>%
-  mutate(noclim_T = Temp - T_clim,
-         noclim_pH = pH - pH_clim,
-         noclim_DO = DO - DO_clim) %>%
+  mutate(noclim_T = Temp - interpolated_temp,
+         noclim_pH = pH - interp_pH,
+         noclim_DO = DO - interp_DO) %>%
   filter(Month == c(5,6,7,8,9))
 
 midcen_merge <- midcen_merge %>%
