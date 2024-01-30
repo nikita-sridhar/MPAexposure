@@ -62,7 +62,6 @@ mpa <- read_csv(here("data/processeddata/model/IPSLmpa.csv")) %>%
 
 mpa$File <- substr(mpa$File, 1, nchar(mpa$File)-4)
 
-
 ```
 
 Add regions
@@ -71,7 +70,8 @@ Add regions
 #| label: regions
 #| message: false
 #add regions here!
-mpa_centroids<- read_csv(here("data/rawdata/MPA_polygons.csv"))
+mpa_centroids<- read_csv(here("data/rawdata/MPA_polygons.csv")) %>%
+  select(-Area_sq_mi, -Type)
 mpa_centroids$File <- sub("^", "tphdo_mpa_", mpa_centroids$OBJECTID )
 
 mpa_centroids <- mpa_centroids %>%
@@ -90,48 +90,9 @@ channel <- c("Anacapa Island FMCA", "Anacapa Island FMR", "Anacapa Island SMCA",
 mpa_centroids$region[mpa_centroids$NAME %in% channel]  <- "channel" 
 mpa <- merge(mpa, mpa_centroids,  by = "File")
 
-#DELETE AFTER CHECKING
-mpa_historic <- mpa %>%
-  filter(period == "historic")
-mpa_midcen <- mpa %>%
-  filter(period == "midcen")
-mpa_endcen <- mpa %>%
-  filter(period == "endcen")
 ```
 
-## Create summary stats
-
-Find mean and lower 10th percentile of pH, temp, and DO for each MPA
-
-```{r}
-#| label: summary_stats
-
-sum <- mpa %>%
-  group_by(File, period) %>% 
-  summarize(across(c(Temp, DO, pH), 
-                   list(mean = mean, 
-                        low10 = ~ quantile(.x, 0.1),
-                        high10 = ~quantile(.x,0.9)))) %>% 
-    merge(mpa_centroids,  by = "File")
-
-#DELETE AFTER CHECKING
-#function to create summary stats for diff time periods
-create_summmary_stats <- function(x){
-  summary <- mpa %>%
-    filter(period == x) %>%
-    group_by(File) %>% 
-  summarize(across(c(Temp, DO, pH), 
-                   list(mean = mean, low10 = ~ quantile(.x, 0.1)))) %>% 
-    merge(mpa_centroids,  by = "File")
-}
-
-sum_historic <- create_summmary_stats("historic")
-sum_midcen <- create_summmary_stats("midcen")
-sum_endcen <- create_summmary_stats("endcen")
-
-```
-
-## Calculate seasonal variation
+## Calculate climatology
 
 Create a climatology (Jan averaged over every year), so each MPA has one value per month that is averaged over all of the years. Find SD of this dataframe, to get seasonal variation.
 
@@ -145,6 +106,7 @@ mpa_climatology <- mpa %>%
     summarise(T_clim = mean(Temp), 
               pH_clim = mean(pH), 
               DO_clim =   mean(DO))
+
 #calculate seasonal SD 
 seasonal_SD <- mpa_climatology %>%
   group_by(File, period) %>%
@@ -152,33 +114,22 @@ seasonal_SD <- mpa_climatology %>%
             pH_seasonalSD = sd(pH_clim),
             DO_seasonalSD = sd(DO_clim))
 
-
 #individual files per time period 
-mpa_historic_climatology <- mpa_historic %>%
+mpa_historic_climatology <- mpa %>% 
+  filter(period == "historic") %>%
   group_by(File, Month) %>%
   summarise(T_clim = mean(Temp), T_clim_sd = sd(Temp), pH_clim = mean(pH), DO_clim =   mean(DO))
-mpa_midcen_climatology <- mpa_midcen %>%
-  group_by(File, Month) %>%
-  summarise(T_clim = mean(Temp), pH_clim = mean(pH), DO_clim = mean(DO))
-mpa_endcen_climatology <- mpa_endcen %>%
+
+mpa_midcen_climatology <- mpa %>%
+  filter(period == "midcen") %>%
   group_by(File, Month) %>%
   summarise(T_clim = mean(Temp), pH_clim = mean(pH), DO_clim = mean(DO))
 
-historic_seasonalSD <- mpa_historic_climatology %>%
-  group_by(File) %>%
-  summarise(T_seasonalSD = sd(T_clim),
-            pH_seasonalSD = sd(pH_clim),
-            DO_seasonalSD = sd(DO_clim))
-midcen_seasonalSD <- mpa_midcen_climatology %>%
-  group_by(File) %>%
-  summarise(T_seasonalSD = sd(T_clim),
-            pH_seasonalSD = sd(pH_clim),
-            DO_seasonalSD = sd(DO_clim))
-endcen_seasonalSD <- mpa_endcen_climatology %>%
-  group_by(File) %>%
-  summarise(T_seasonalSD = sd(T_clim),
-            pH_seasonalSD = sd(pH_clim),
-            DO_seasonalSD = sd(DO_clim))
+mpa_endcen_climatology <- mpa %>%
+  filter(period == "endcen") %>%
+  group_by(File, Month) %>%
+  summarise(T_clim = mean(Temp), pH_clim = mean(pH), DO_clim = mean(DO))
+
 ```
 
 ## Calculate event-based variation
@@ -210,7 +161,7 @@ x_out <- (1:365)
 x_out <- x_out[!(x_out %in% x_in)] #removing the days of the year we already have values for
 ```
 
-Interpolation for temp ,historic time period:
+Interpolation for temp
 
 ```{r,warning=FALSE, message=FALSE, results='hide'}
 #| label: inter_temp
@@ -243,16 +194,11 @@ historic_tempdata <- historic_tempdata %>%
 
 #Later we create a julian day variable in our OG mpa dataset, to merge this to all the rows on the dataset by filename and day and then have the mean daily climatological value for each row. 
 
-```
 
-Interpolation for temp, mid century time period
-
-```{r}
-
+#MIDCEN
 mpa_midcen_climatology <- mpa_climatology %>%
   filter(period == "midcen")
 
-#MIDCEN
 for (i in 1:length(mpaslist)){
   print(i)
   d = mpa_midcen_climatology %>% filter(File == mpaslist[i]) %>% select(T_clim)
@@ -272,17 +218,12 @@ midcen_tempdata <- midcen_tempdata %>%
   rename(File = mpas) %>%
   mutate(period = "midcen") %>%
   rename(interp_temp = T_clim)
-  
 
-```
 
-Interpolation for temp, end century time period
-
-```{r}
+#ENDCEN
 mpa_endcen_climatology <- mpa_climatology %>%
   filter(period == "endcen")
 
-#ENDCEN
 for (i in 1:length(mpaslist)){
   print(i)
   d = mpa_endcen_climatology %>% filter(File == mpaslist[i]) %>% select(T_clim)
@@ -302,6 +243,7 @@ endcen_tempdata <- endcen_tempdata %>%
   rename(File = mpas) %>%
   mutate(period = "endcen") %>%
   rename(interp_temp = T_clim)
+  
 ```
 
 Interpolation for pH
@@ -439,159 +381,52 @@ endcen_DOdata <- endcen_DOdata %>%
   rename(interp_DO = DO_clim)
 ```
 
-Merge interpolated values to MPA dataset and find SD
+## Create summary stats
+
+Merge interpolated values to MPA dataset to find seasonal SD (SD of deviation between daily value and interpolated climatological value). Add other summary stats like event SD, mean, lower 10, upper 10 percentile.
 
 ```{r}
-#| label: inter_merge
+#| label: summary_stats
 
-#I'm sorry to future Niki about the mess of above for loops ^^. Need to clean that up. In the meantime, outputted datasets from interpolation are combined back into one to clean up code from this point on. 
-
+#merging interpolated datasets from prev chunks
 interpolated_temp <- rbind(historic_tempdata,midcen_tempdata,endcen_tempdata)
 interpolated_pH <- rbind(historic_pHdata, midcen_pHdata, endcen_pHdata)
 interpolated_DO <- rbind(historic_DOdata, midcen_DOdata, endcen_DOdata)
 
-interpolated_mpa <- mpa %>%
+sum <- mpa %>%
+ 
+  #merge interpolated climatologies to mpa. (used to calculate event sd)
   merge(interpolated_temp, by = c("File", "julianday", "period")) %>%
   merge(interpolated_pH, by = c("File", "julianday", "period")) %>%
-  merge(interpolated_DO, by = c("File", "julianday", "period"))
-
-
-
-
-#mpa merge to ph/do/temp
-historic_merge <- merge(mpa_historic, historic_tempdata, by = c("File", "julianday"))
-historic_merge <- merge(historic_merge, historic_DOdata, by = c("File", "julianday"))
-historic_merge <- merge(historic_merge, historic_pHdata, by = c("File", "julianday"))
-
-midcen_merge <- merge(mpa_midcen, midcen_tempdata, by = c("File", "julianday"))
-midcen_merge <- merge(midcen_merge, midcen_DOdata, by = c("File", "julianday"))
-midcen_merge <- merge(midcen_merge, midcen_pHdata, by = c("File", "julianday"))
-
-endcen_merge <- merge(mpa_endcen, endcen_tempdata, by = c("File", "julianday"))
-endcen_merge <- merge(endcen_merge, endcen_DOdata, by = c("File", "julianday"))
-endcen_merge <- merge(endcen_merge, endcen_pHdata, by = c("File", "julianday"))
-
-#subtract climatology . actual - clim
-#filtered for only upwelling months.
-historic_merge <- historic_merge %>%
-  mutate(noclim_T = Temp - interpolated_temp,
-         noclim_pH = pH - interp_pH,
-         noclim_DO = DO - interp_DO) %>%
-  filter(Month == c(5,6,7,8,9))
-
-midcen_merge <- midcen_merge %>%
-  mutate(noclim_T = Temp - T_clim,
-         noclim_pH = pH - pH_clim,
-         noclim_DO = DO - DO_clim) %>%
-  filter(Month == c(5,6,7,8,9))
-
-endcen_merge <- endcen_merge %>%
-  mutate(noclim_T = Temp - T_clim,
-         noclim_pH = pH - pH_clim,
-         noclim_DO = DO - DO_clim) %>%
-  filter(Month == c(5,6,7,8,9))
-
-#find event based SD (removed clim)
-historic_eventSD <- historic_merge %>%
-  group_by(File) %>%
-  summarise(T_eventSD = sd(noclim_T),
-            pH_eventSD = sd(noclim_pH),
-            DO_eventSD = sd(noclim_DO))
-midcen_eventSD <- midcen_merge %>%
-  group_by(File) %>%
-  summarise(T_eventSD = sd(noclim_T),
-            pH_eventSD = sd(noclim_pH),
-            DO_eventSD = sd(noclim_DO))
-endcen_eventSD <- endcen_merge %>%
-  group_by(File) %>%
-  summarise(T_eventSD = sd(noclim_T),
-            pH_eventSD = sd(noclim_pH),
-            DO_eventSD = sd(noclim_DO))
-```
-
-## Append SD to summary stats
-
-```{r}
-#| label: append_sum
-
-#merging eventSD and seasonalSD to mpa_sum
-sum_historic <- merge(sum_historic, historic_seasonalSD,  by = "File")
-sum_historic <- merge(sum_historic, historic_eventSD,  by = "File")
-
-sum_midcen <- merge(sum_midcen, midcen_seasonalSD,  by = "File")
-sum_midcen <- merge(sum_midcen, midcen_eventSD,  by = "File")
-
-sum_endcen <- merge(sum_endcen, endcen_seasonalSD,  by = "File")
-sum_endcen <- merge(sum_endcen, endcen_eventSD,  by = "File")
-
-
-#create a new df that for each summary stat has: historic, (midcen-historic), (endcen-historic) - this is only really going to be used for heatmaps. so only need sum
-#renaming columns
-
-
-sum_diff <- merge(sum_historic,sum_midcen, by = "File") %>%
-  merge(sum_endcen) %>%
-  rename(historic_T_mean=T_mean.x,
-         historic_T_low10=T_low10.x,
-         historic_DO_mean=DO_mean.x,
-         historic_DO_low10=DO_low10.x,
-         historic_pH_mean=pH_mean.x,
-         historic_pH_low10=pH_low10.x,
-         historic_T_seasonalSD=T_seasonalSD.x,
-         historic_pH_seasonalSD=pH_seasonalSD.x,
-         historic_DO_seasonalSD=DO_seasonalSD.x,
-         historic_T_eventSD= T_eventSD.x,
-         historic_pH_eventSD=pH_eventSD.x,
-         historic_DO_eventSD=DO_eventSD.x,
-         midcen_T_mean=T_mean.y,
-         midcen_T_low10=T_low10.y,
-         midcen_DO_mean=DO_mean.y,
-         midcen_DO_low10=DO_low10.y,
-         midcen_pH_mean=pH_mean.y,
-         midcen_pH_low10=pH_low10.y,
-         midcen_T_seasonalSD=T_seasonalSD.y,
-         midcen_pH_seasonalSD=pH_seasonalSD.y,
-         midcen_DO_seasonalSD= DO_seasonalSD.y,
-         midcen_T_eventSD=T_eventSD.y,
-         midcen_pH_eventSD=pH_eventSD.y,
-         midcen_DO_eventSD=DO_eventSD.y,
-         endcen_T_mean=T_mean,
-         endcen_T_low10=T_low10,
-         endcen_DO_mean=DO_mean,
-         endcen_DO_low10=DO_low10,
-         endcen_pH_mean=pH_mean,
-         endcen_pH_low10=pH_low10,
-         endcen_T_seasonalSD=T_seasonalSD,
-         endcen_pH_seasonalSD=pH_seasonalSD,
-         endcen_DO_seasonalSD=DO_seasonalSD,
-         endcen_T_eventSD=T_eventSD,
-         endcen_pH_eventSD=pH_eventSD,
-         endcen_DO_eventSD=DO_eventSD) %>%
-  mutate(mid_diff_T_mean = midcen_T_mean - historic_T_mean,
-         mid_diff_T_low10 = midcen_T_low10 - historic_T_low10,
-         mid_diff_T_seasonalSD = midcen_T_seasonalSD - historic_T_seasonalSD,
-         mid_diff_T_eventSD = midcen_T_eventSD - historic_T_eventSD,
-         mid_diff_pH_mean = midcen_pH_mean - historic_pH_mean,
-         mid_diff_pH_low10 = midcen_pH_low10 - historic_pH_low10,
-         mid_diff_pH_seasonalSD = midcen_pH_seasonalSD - historic_pH_seasonalSD,
-         mid_diff_pH_eventSD = midcen_pH_eventSD - historic_pH_eventSD,
-         mid_diff_DO_mean = midcen_DO_mean - historic_DO_mean,
-         mid_diff_DO_low10 = midcen_DO_low10 - historic_DO_low10,
-         mid_diff_DO_seasonalSD = midcen_DO_seasonalSD - historic_DO_seasonalSD,
-         mid_diff_DO_eventSD = midcen_DO_eventSD - historic_DO_eventSD,
-         end_diff_T_mean = endcen_T_mean - historic_T_mean,
-         end_diff_T_low10 = endcen_T_low10 - historic_T_low10,
-         end_diff_T_seasonalSD = endcen_T_seasonalSD - historic_T_seasonalSD,
-         end_diff_T_eventSD = endcen_T_eventSD - historic_T_eventSD,
-         end_diff_pH_mean = endcen_pH_mean - historic_pH_mean,
-         end_diff_pH_low10 = endcen_pH_low10 - historic_pH_low10,
-         end_diff_pH_seasonalSD = endcen_pH_seasonalSD - historic_pH_seasonalSD,
-         end_diff_pH_eventSD = endcen_pH_eventSD - historic_pH_eventSD,
-         end_diff_DO_mean = endcen_DO_mean - historic_DO_mean,
-         end_diff_DO_low10 = endcen_DO_low10 - historic_DO_low10,
-         end_diff_DO_seasonalSD = endcen_DO_seasonalSD - historic_DO_seasonalSD,
-         end_diff_DO_eventSD = endcen_DO_eventSD - historic_DO_eventSD)
-
+  merge(interpolated_DO, by = c("File", "julianday", "period")) %>%
+  
+  #subtract actual values - interpolated climatology values 
+  #filtered for only upwelling months!!
+  mutate(temp_deviation = Temp - interp_temp,
+         pH_deviation = pH - interp_pH,
+         DO_deviation = DO - interp_DO) %>%
+  filter(Month == c(5,6,7,8,9)) %>%
+  
+  #find event based SD 
+  group_by(File, period) %>%
+    mutate(T_eventSD = sd(temp_deviation),
+            pH_eventSD = sd(pH_deviation),
+            DO_eventSD = sd(DO_deviation)) %>%
+    select(-interp_temp, -interp_pH, -interp_DO, -temp_deviation,
+         -pH_deviation, -DO_deviation) %>%
+  
+    #merge seasonal SD calculated earlier from climatologies
+    merge(seasonal_SD, by = c("File", "period")) %>%
+  
+    #adding other summary stats - mean, low 10th and upper 10th percentiles
+    mutate(across(c(Temp, DO, pH), 
+                   list(mean = mean, 
+                        low10 = ~ quantile(.x, 0.1),
+                        high10 = ~quantile(.x,0.9)))) %>%
+  
+  # to get to scale of one row per mpa
+  select(-...1, -Temp, -pH, -DO, -julianday, -Year, -Date, -Month, -Day) %>%
+  distinct() 
 ```
 
 ## PCA
