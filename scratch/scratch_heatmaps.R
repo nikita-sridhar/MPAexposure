@@ -530,13 +530,36 @@ heatmap.2(matrix_numeric,Rowv = FALSE, Colv = FALSE, dendrogram = "none",
           margins = c(5,10), col=col, srtCol = 45, labRow = matrix$NAME)
 
 
+region_cols <- colour_vales(matrix$region, c("darkred", "forestgreen", "orange", "blue"))
 
 
 
+  
+  
 
-
-
-
+    #make matrix for variable of interest
+    matrix <- sum %>%
+      select(Temp_mean, NAME, degy, period, region) %>%
+      pivot_wider(names_from = period, values_from = Temp_mean) %>%
+      mutate(col = case_when((region == "centralca") ~ "#ffff99", 
+                             (region == "norca") ~ "#beaed4",
+                             (region == "socal") ~ "#fdc086",
+                             (region == "channel") ~ "#7fc97f")) %>%
+      arrange(-degy) 
+    
+    #making matrix numeric for heatmap to work
+    matrix_numeric <- matrix %>%
+      select(-NAME, -region, -degy) %>%
+      select(historic, midcen, endcen) %>%
+      as.matrix()
+    
+    row.names(matrix_numeric) <- matrix$NAME
+    
+    heatmap.2(matrix_numeric, Rowv = FALSE, Colv = FALSE, dendrogram = "none", 
+              main = sumstat, tracecol=NA, revC= TRUE,
+              margins = c(5,15), col= col, srtCol = 45, labRow = matrix$NAME, 
+              RowSideColors = matrix$col)
+  
 
 
 
