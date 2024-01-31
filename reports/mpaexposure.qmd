@@ -438,48 +438,29 @@ PCA with all summary stats (mean, lower 10th percentile, seasonal SD, event SD)
 ```{r}
 #| label: pca
 
+make_pca <- function(df, periodt){
+  sum_period <- df %>% filter(period == periodt) 
+  sumsub <- sum_period %>% select(-OBJECTID,-NAME, -File, -SHORTNAME, -degx, 
+                                  -degy, -region, -period)
+  
+  pca <- prcomp(sumsub, scale = TRUE)
+  
+  fviz_pca_biplot(pca, repel = TRUE,
+                  col.var = "black",
+                  col.ind = sum_period$region,
+                  label ="var",
+                  labelsize = 3,
+                  addEllipses = TRUE,
+                  title = periodt) 
+  
+  fviz_pca_ind(pca, label="none", habillage=sum_period$region,
+     addEllipses=TRUE,  col.ind = sum_period$region)
+}
 
-sum_historic <- sum %>% filter(period == "historic")
-sumsub_historic <- sum_historic %>% select(-OBJECTID,-NAME, -File, -SHORTNAME, -degx, -degy, -region, -period) 
+make_pca(sum, "historic")
+make_pca(sum, "midcen")
+make_pca(sum, "endcen") #need to rotate by changing sumsub to sumsub[,-1] inside prcomp
 
-sum_midcen <- sum %>% filter(period == "midcen")
-sumsub_midcen <- sum_midcen %>% select(-OBJECTID,-NAME, -File, -SHORTNAME, -degx, -degy, -region, -period)
-
-sum_endcen <- sum %>% filter(period == "endcen")
-sumsub_endcen <- sum_endcen %>% select(-OBJECTID,-NAME, -File, -SHORTNAME, -degx, -degy, -region, -period) 
-
-
-pca_historic <- prcomp(sumsub_historic, scale = TRUE)
-summary(pca_historic)
-fviz_pca_biplot(pca_historic, repel = TRUE,
-                col.var = "black",
-                col.ind = sum_historic$region,
-                label ="var",
-                labelsize = 3,
-                addEllipses = TRUE,
-                title = "IPSL Historic") 
-
-pca_midcen <- prcomp(sumsub_midcen, scale = TRUE)
-fviz_pca_biplot(pca_midcen, repel = TRUE,
-                col.var = "black",
-                col.ind = sum_midcen$region,
-                label ="var",
-                labelsize = 3,
-                addEllipses = TRUE,
-                title = "IPSL Mid cen") 
-
-pca_endcen <- prcomp(sumsub_endcen, scale = TRUE) #REMOVE [,-1] IF DONT WANT TO ROTATE
-fviz_pca_biplot(pca_historic, repel = TRUE,
-                col.var = "black",
-                col.ind = sum_endcen$region,
-                label ="var",
-                labelsize = 3,
-                addEllipses = TRUE,
-                title = "IPSL End cen") 
-
-
-fviz_pca_ind(pca_historic, label="none", habillage=sum_historic$region,
-     addEllipses=TRUE,  col.ind = sum_historic$region)
 ```
 
 ## Heatmaps by variable
@@ -536,8 +517,6 @@ make_heatmap(sum, "DO_seasonalSD")
 ## Regressions
 
 Supplementing heatmaps by looking at correlation between historic and future time periods for a given summary stat
-
-Temp:
 
 ```{r}
 
