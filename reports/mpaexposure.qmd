@@ -419,6 +419,7 @@ sum <- mpa %>%
     merge(seasonal_SD, by = c("File", "period")) %>%
   
     #adding other summary stats - mean, low 10th and upper 10th percentiles
+    group_by(File, period) %>%
     mutate(across(c(Temp, DO, pH), 
                    list(mean = mean, 
                         low10 = ~ quantile(.x, 0.1),
@@ -426,7 +427,8 @@ sum <- mpa %>%
   
   # to get to scale of one row per mpa
   select(-...1, -Temp, -pH, -DO, -julianday, -Year, -Date, -Month, -Day) %>%
-  distinct() 
+  distinct() %>% ungroup()
+
 ```
 
 ## PCA
@@ -436,12 +438,19 @@ PCA with all summary stats (mean, lower 10th percentile, seasonal SD, event SD)
 ```{r}
 #| label: pca
 
-sumsub_historic <- sum_historic %>% select(-OBJECTID,-NAME, -File,  -Area_sq_mi, -Type, -SHORTNAME, -degx, -degy, -region) 
-sumsub_midcen <- sum_midcen %>% select(-OBJECTID,-File, -NAME, -Area_sq_mi, -Type, -SHORTNAME, -degx, -degy, -region)
-sumsub_endcen <- sum_endcen %>% select(-OBJECTID,-File, -NAME, -Area_sq_mi, -Type, -SHORTNAME, -degx, -degy, -region) 
+
+sum_historic <- sum %>% filter(period == "historic")
+sumsub_historic <- sum_historic %>% select(-OBJECTID,-NAME, -File, -SHORTNAME, -degx, -degy, -region, -period) 
+
+sum_midcen <- sum %>% filter(period == "midcen")
+sumsub_midcen <- sum_midcen %>% select(-OBJECTID,-NAME, -File, -SHORTNAME, -degx, -degy, -region, -period)
+
+sum_endcen <- sum %>% filter(period == "endcen")
+sumsub_endcen <- sum_endcen %>% select(-OBJECTID,-NAME, -File, -SHORTNAME, -degx, -degy, -region, -period) 
 
 
 pca_historic <- prcomp(sumsub_historic, scale = TRUE)
+summary(pca_historic)
 fviz_pca_biplot(pca_historic, repel = TRUE,
                 col.var = "black",
                 col.ind = sum_historic$region,
@@ -470,179 +479,57 @@ fviz_pca_biplot(pca_historic, repel = TRUE,
 
 
 fviz_pca_ind(pca_historic, label="none", habillage=sum_historic$region,
-     addEllipses=TRUE,  col.ind = sum_endcen$region)
+     addEllipses=TRUE,  col.ind = sum_historic$region)
 ```
 
 ## Heatmaps by variable
 
 ```{r}
+
 col <- colorRampPalette(brewer.pal(9,"YlOrRd"))(256)
 invert_col <- colorRampPalette(rev(brewer.pal(9,"YlOrRd")))(256)
-```
 
-Heatmaps across all regions for T summary stats
-
-```{r}
-
-
-
-
-create_heatmap <- function(){
+make_heatmap <- function(df, sumstat, color_palette = invert_col){
   
+  #make matrix for variable of interest
+  matrix <- df %>%
+  select(sumstat, NAME, degy, period) %>%
+  pivot_wider(names_from = period, values_from = sumstat) %>%
+  arrange(-degy) %>%
+  select(-degy) 
+ 
+  matrix_numeric <- matrix %>%
+  select(-NAME) %>%
+  select(historic, midcen, endcen) %>%
+  as.matrix()
+
+  row.names(matrix_numeric) <- matrix$NAME
+
+  heatmap.2(matrix_numeric, Rowv = FALSE, Colv = FALSE, dendrogram = "none", 
+          main = sumstat, tracecol=NA, revC= TRUE,
+          margins = c(5,10), col= color_palette, srtCol = 45, labRow = matrix$NAME)
 }
 
-#T mean all regions
-sum_diff_T_mean <- sum_diff[order(sum_diff$degy.x),] %>%
-  select(NAME,historic_T_mean, midcen_T_mean, endcen_T_mean) 
+#Temp heatmaps
+make_heatmap(sum, "Temp_mean", col)
+make_heatmap(sum, "Temp_high10", col)
+make_heatmap(sum, "Temp_low10", col)
+make_heatmap(sum, "T_eventSD", col)
+make_heatmap(sum, "T_seasonalSD", col)
 
-rownames(sum_diff_T_mean) <- sum_diff_T_mean[,1]
+#pH heatmaps
+make_heatmap(sum, "pH_mean")
+make_heatmap(sum, "pH_high10")
+make_heatmap(sum, "pH_low10")
+make_heatmap(sum, "pH_eventSD")
+make_heatmap(sum, "pH_seasonalSD")
 
-Tmean <- as.matrix(sum_diff_T_mean[,2:4])
-
-heatmap.2(Tmean,Rowv = FALSE, Colv = FALSE, dendrogram = "none", 
-          main = "T mean",tracecol=NA, revC= TRUE,
-          margins = c(5,10), col=col, srtCol = 45)
-
-#T low 10 all regions
-sum_diff_T_low10 <- sum_diff[order(sum_diff$degy.x),] %>%
-  select(NAME,historic_T_low10, midcen_T_low10, endcen_T_low10) 
-
-rownames(sum_diff_T_low10) <- sum_diff_T_low10[,1]
-
-Tlow10 <- as.matrix(sum_diff_T_low10[,2:4])
-
-heatmap.2(Tlow10,Rowv = FALSE, Colv = FALSE, dendrogram = "none", 
-          main = "T low10",tracecol=NA, revC= TRUE,
-          margins = c(5,10), col=col, srtCol = 45)
-
-#T seasonalSD all regions
-sum_diff_T_seasonalSD <- sum_diff[order(sum_diff$degy.x),] %>%
-  select(NAME,historic_T_seasonalSD, midcen_T_seasonalSD, endcen_T_seasonalSD) 
-
-rownames(sum_diff_T_seasonalSD) <- sum_diff_T_seasonalSD[,1]
-
-TseasonalSD <- as.matrix(sum_diff_T_seasonalSD[,2:4])
-
-heatmap.2(TseasonalSD,Rowv = FALSE, Colv = FALSE, dendrogram = "none", 
-          main = "T seasonalSD",tracecol=NA, revC= TRUE,
-          margins = c(5,10), col=col, srtCol = 45)
-
-#T eventSD all regions
-sum_diff_T_eventSD <- sum_diff[order(sum_diff$degy.x),] %>%
-  select(NAME,historic_T_eventSD, midcen_T_eventSD, endcen_T_eventSD) 
-
-rownames(sum_diff_T_eventSD) <- sum_diff_T_eventSD[,1]
-
-TeventSD <- as.matrix(sum_diff_T_eventSD[,2:4])
-
-heatmap.2(TeventSD,Rowv = FALSE, Colv = FALSE, dendrogram = "none", 
-          main = "T eventSD",tracecol=NA, revC= TRUE,
-          margins = c(5,10), col=col, srtCol = 45)
-```
-
-Heatmaps across all regions for DO summary stats
-
-```{r}
-#DO mean all regions
-sum_diff_DO_mean <- sum_diff[order(sum_diff$degy.x),] %>%
-  select(NAME,historic_DO_mean, midcen_DO_mean, endcen_DO_mean) 
-
-rownames(sum_diff_DO_mean) <- sum_diff_DO_mean[,1]
-
-DOmean <- as.matrix(sum_diff_DO_mean[,2:4])
-
-heatmap.2(DOmean,Rowv = FALSE, Colv = FALSE, dendrogram = "none", 
-          main = "DO mean",tracecol=NA, revC= TRUE,
-          margins = c(5,10), col=invert_col, srtCol = 45)
-
-#DO low 10 all regions
-sum_diff_DO_low10 <- sum_diff[order(sum_diff$degy.x),] %>%
-  select(NAME,historic_DO_low10, midcen_DO_low10, endcen_DO_low10) 
-
-rownames(sum_diff_DO_low10) <- sum_diff_DO_low10[,1]
-
-DOlow10 <- as.matrix(sum_diff_DO_low10[,2:4])
-
-heatmap.2(DOlow10,Rowv = FALSE, Colv = FALSE, dendrogram = "none", 
-          main = "DO low10",tracecol=NA, revC= TRUE,
-          margins = c(5,10), col=invert_col, srtCol = 45)
-
-#DO seasonalSD all regions
-sum_diff_DO_seasonalSD <- sum_diff[order(sum_diff$degy.x),] %>%
-  select(NAME,historic_DO_seasonalSD, midcen_DO_seasonalSD, endcen_DO_seasonalSD) 
-
-rownames(sum_diff_DO_seasonalSD) <- sum_diff_DO_seasonalSD[,1]
-
-DOseasonalSD <- as.matrix(sum_diff_DO_seasonalSD[,2:4])
-
-heatmap.2(DOseasonalSD,Rowv = FALSE, Colv = FALSE, dendrogram = "none", 
-          main = "DO seasonalSD",tracecol=NA, revC= TRUE,
-          margins = c(5,10), col=col, srtCol = 45)
-
-#DO eventSD all regions
-sum_diff_DO_eventSD <- sum_diff[order(sum_diff$degy.x),] %>%
-  select(NAME,historic_DO_eventSD, midcen_DO_eventSD, endcen_DO_eventSD) 
-
-rownames(sum_diff_DO_eventSD) <- sum_diff_DO_eventSD[,1]
-
-DOeventSD <- as.matrix(sum_diff_DO_eventSD[,2:4])
-
-heatmap.2(DOeventSD,Rowv = FALSE, Colv = FALSE, dendrogram = "none", 
-          main = "DO eventSD",tracecol=NA, revC= TRUE,
-          margins = c(5,10), col=col, srtCol = 45)
-
-```
-
-Heatmaps across all regions for pH summary stats
-
-```{r}
-#pH mean all regions
-sum_diff_pH_mean <- sum_diff[order(sum_diff$degy.x),] %>%
-  select(NAME,historic_pH_mean, midcen_pH_mean, endcen_pH_mean) 
-
-rownames(sum_diff_pH_mean) <- sum_diff_pH_mean[,1]
-
-pHmean <- as.matrix(sum_diff_pH_mean[,2:4])
-
-heatmap.2(pHmean,Rowv = FALSE, Colv = FALSE, dendrogram = "none", 
-          main = "pH mean",tracecol=NA, revC= TRUE,
-          margins = c(5,10), col=invert_col, srtCol = 45)
-
-#pH low 10 all regions
-sum_diff_pH_low10 <- sum_diff[order(sum_diff$degy.x),] %>%
-  select(NAME,historic_pH_low10, midcen_pH_low10, endcen_pH_low10) 
-
-rownames(sum_diff_pH_low10) <- sum_diff_pH_low10[,1]
-
-pHlow10 <- as.matrix(sum_diff_pH_low10[,2:4])
-
-heatmap.2(pHlow10,Rowv = FALSE, Colv = FALSE, dendrogram = "none", 
-          main = "pH low10",tracecol=NA, revC= TRUE,
-          margins = c(5,10), col=invert_col, srtCol = 45)
-
-#pH seasonalSD all regions
-sum_diff_pH_seasonalSD <- sum_diff[order(sum_diff$degy.x),] %>%
-  select(NAME,historic_pH_seasonalSD, midcen_pH_seasonalSD, endcen_pH_seasonalSD) 
-
-rownames(sum_diff_pH_seasonalSD) <- sum_diff_pH_seasonalSD[,1]
-
-pHseasonalSD <- as.matrix(sum_diff_pH_seasonalSD[,2:4])
-
-heatmap.2(pHseasonalSD,Rowv = FALSE, Colv = FALSE, dendrogram = "none", 
-          main = "pH seasonalSD",tracecol=NA, revC= TRUE,
-          margins = c(5,10), col=col, srtCol = 45)
-
-#pH eventSD all regions
-sum_diff_pH_eventSD <- sum_diff[order(sum_diff$degy.x),] %>%
-  select(NAME,historic_pH_eventSD, midcen_pH_eventSD, endcen_pH_eventSD) 
-
-rownames(sum_diff_pH_eventSD) <- sum_diff_pH_eventSD[,1]
-
-pHeventSD <- as.matrix(sum_diff_pH_eventSD[,2:4])
-
-heatmap.2(pHeventSD,Rowv = FALSE, Colv = FALSE, dendrogram = "none", 
-          main = "pH eventSD",tracecol=NA, revC= TRUE,
-          margins = c(5,10), col=col, srtCol = 45)
+#DO heatmaps
+make_heatmap(sum, "DO_mean")
+make_heatmap(sum, "DO_high10")
+make_heatmap(sum, "DO_low10")
+make_heatmap(sum, "DO_eventSD")
+make_heatmap(sum, "DO_seasonalSD")
 
 ```
 
@@ -653,179 +540,44 @@ Supplementing heatmaps by looking at correlation between historic and future tim
 Temp:
 
 ```{r}
-# T -----------------------------------------------------------------------
 
-#historic T_mean vs. midcen T_mean
-ggplot(data = sum_diff, aes(x = historic_T_mean, y = midcen_T_mean)) +
-  stat_poly_line() +
-  stat_poly_eq(use_label(c("eq", "R2"))) +
-  geom_point() +
-  theme_classic() +
-  labs(y= "Midcen T_mean", x = "Historic T_mean") +
-  ggtitle("Historic vs. midcen T_mean")
+make_regression <- function(df, sumstat, period1, period2){
+ plot_matrix <- df %>%
+   filter(period == period1 | period == period2) %>%
+   select(sumstat, period, NAME, File) %>%
+   pivot_wider(names_from = period, values_from = sumstat) 
+ 
+ ggplot(data = plot_matrix, aes_string(x = period1, y = period2)) +
+   stat_poly_line() +
+   stat_poly_eq(use_label(c("eq", "R2"))) +
+   geom_point() +
+   theme_classic() +
+   ggtitle(sumstat)
+}
 
-#historic T_mean vs. endcen T_mean
-ggplot(data = sum_diff, aes(x = historic_T_mean, y = endcen_T_mean)) +
-  stat_poly_line() +
-  stat_poly_eq(use_label(c("eq", "R2"))) +
-  geom_point() +
-  theme_classic() +
-  labs(y= "Endcen T_mean", x = "Historic T_mean") +
-  ggtitle("Historic vs. endcen T_mean")
+#temp
+make_regression(sum, "Temp_mean", "historic", "midcen")
+make_regression(sum, "Temp_mean", "historic", "endcen")
+make_regression(sum, "T_seasonalSD", "historic", "midcen")
+make_regression(sum, "T_seasonalSD", "historic", "endcen")
+make_regression(sum, "T_eventSD", "historic", "midcen")
+make_regression(sum, "T_eventSD", "historic", "endcen")
 
-#historic T_seasonalSD vs. midcen T_seasonalSD
-ggplot(data = sum_diff, aes(x = historic_T_seasonalSD, y = midcen_T_seasonalSD)) +
-  stat_poly_line() +
-  stat_poly_eq(use_label(c("eq", "R2"))) +
-  geom_point() +
-  theme_classic() +
-  labs(y= "Midcen T_seasonalSD", x = "Historic T_seasonalSD") +
-  ggtitle("Historic vs. midcen T_seasonalSD")
+#pH
+make_regression(sum, "pH_mean", "historic", "midcen")
+make_regression(sum, "pH_mean", "historic", "endcen")
+make_regression(sum, "pH_seasonalSD", "historic", "midcen")
+make_regression(sum, "pH_seasonalSD", "historic", "endcen")
+make_regression(sum, "pH_eventSD", "historic", "midcen")
+make_regression(sum, "pH_eventSD", "historic", "endcen")
 
-#historic T_seasonalSD vs. endcen T_seasonalSD
-ggplot(data = sum_diff, aes(x = historic_T_seasonalSD, y = endcen_T_seasonalSD)) +
-  stat_poly_line() +
-  stat_poly_eq(use_label(c("eq", "R2"))) +
-  geom_point() +
-  theme_classic() +
-  labs(y= "Endcen T_seasonalSD", x = "Historic T_seasonalSD") +
-  ggtitle("Historic vs. endcen T_seasonalSD")
-
-#historic T_eventSD vs. midcen T_eventSD
-ggplot(data = sum_diff, aes(x = historic_T_eventSD, y = midcen_T_eventSD)) +
-  stat_poly_line() +
-  stat_poly_eq(use_label(c("eq", "R2"))) +
-  geom_point() +
-  theme_classic() +
-  labs(y= "Midcen T_eventSD", x = "Historic T_eventSD") +
-  ggtitle("Historic vs. midcen T_eventSD")
-
-#historic T_eventSD vs. endcen T_eventSD
-ggplot(data = sum_diff, aes(x = historic_T_eventSD, y = endcen_T_eventSD)) +
-  stat_poly_line() +
-  stat_poly_eq(use_label(c("eq", "R2"))) +
-  geom_point() +
-  theme_classic() +
-  labs(y= "Endcen T_eventSD", x = "Historic T_eventSD") +
-  ggtitle("Historic vs. endcen T_eventSD")
-
-```
-
-pH
-
-```{r}
-#historic pH_mean vs. midcen pH_mean
-ggplot(data = sum_diff, aes(x = historic_pH_mean, y = midcen_pH_mean)) +
-  stat_poly_line() +
-  stat_poly_eq(use_label(c("eq", "R2"))) +
-  geom_point() +
-  theme_classic() +
-  labs(y= "Midcen pH_mean", x = "Historic pH_mean") +
-  ggtitle("Historic vs. midcen pH_mean")
-
-#historic pH_mean vs. endcen pH_mean
-ggplot(data = sum_diff, aes(x = historic_pH_mean, y = endcen_pH_mean)) +
-  stat_poly_line() +
-  stat_poly_eq(use_label(c("eq", "R2"))) +
-  geom_point() +
-  theme_classic() +
-  labs(y= "Endcen pH_mean", x = "Historic pH_mean") +
-  ggtitle("Historic vs. endcen pH_mean")
-
-#historic pH_seasonalSD vs. midcen pH_seasonalSD
-ggplot(data = sum_diff, aes(x = historic_pH_seasonalSD, y = midcen_pH_seasonalSD)) +
-  stat_poly_line() +
-  stat_poly_eq(use_label(c("eq", "R2"))) +
-  geom_point() +
-  theme_classic() +
-  labs(y= "Midcen pH_seasonalSD", x = "Historic pH_seasonalSD") +
-  ggtitle("Historic vs. midcen pH_seasonalSD")
-
-#historic pH_seasonalSD vs. endcen pH_seasonalSD
-ggplot(data = sum_diff, aes(x = historic_pH_seasonalSD, y = endcen_pH_seasonalSD)) +
-  stat_poly_line() +
-  stat_poly_eq(use_label(c("eq", "R2"))) +
-  geom_point() +
-  theme_classic() +
-  labs(y= "Endcen pH_seasonalSD", x = "Historic pH_seasonalSD") +
-  ggtitle("Historic vs. endcen pH_seasonalSD")
-
-#historic pH_eventSD vs. midcen pH_eventSD
-ggplot(data = sum_diff, aes(x = historic_pH_eventSD, y = midcen_pH_eventSD)) +
-  stat_poly_line() +
-  stat_poly_eq(use_label(c("eq", "R2"))) +
-  geom_point() +
-  theme_classic() +
-  labs(y= "Midcen pH_eventSD", x = "Historic pH_eventSD") +
-  ggtitle("Historic vs. midcen pH_eventSD")
-
-#historic pH_eventSD vs. endcen pH_eventSD
-ggplot(data = sum_diff, aes(x = historic_pH_eventSD, y = endcen_pH_eventSD)) +
-  stat_poly_line() +
-  stat_poly_eq(use_label(c("eq", "R2"))) +
-  geom_point() +
-  theme_classic() +
-  labs(y= "Endcen pH_eventSD", x = "Historic pH_eventSD") +
-  ggtitle("Historic vs. endcen pH_eventSD")
-
-```
-
-DO
-
-```{r}
-#historic DO_mean vs. midcen DO_mean
-ggplot(data = sum_diff, aes(x = historic_DO_mean, y = midcen_DO_mean)) +
-  stat_poly_line() +
-  stat_poly_eq(use_label(c("eq", "R2"))) +
-  geom_point() +
-  theme_classic() +
-  labs(y= "Midcen DO_mean", x = "Historic DO_mean") +
-  ggtitle("Historic vs. midcen DO_mean")
-
-#historic DO_mean vs. endcen DO_mean
-ggplot(data = sum_diff, aes(x = historic_DO_mean, y = endcen_DO_mean)) +
-  stat_poly_line() +
-  stat_poly_eq(use_label(c("eq", "R2"))) +
-  geom_point() +
-  theme_classic() +
-  labs(y= "Endcen DO_mean", x = "Historic DO_mean") +
-  ggtitle("Historic vs. endcen DO_mean")
-
-#historic DO_seasonalSD vs. midcen DO_seasonalSD
-ggplot(data = sum_diff, aes(x = historic_DO_seasonalSD, y = midcen_DO_seasonalSD)) +
-  stat_poly_line() +
-  stat_poly_eq(use_label(c("eq", "R2"))) +
-  geom_point() +
-  theme_classic() +
-  labs(y= "Midcen DO_seasonalSD", x = "Historic DO_seasonalSD") +
-  ggtitle("Historic vs. midcen DO_seasonalSD")
-
-#historic DO_seasonalSD vs. endcen DO_seasonalSD
-ggplot(data = sum_diff, aes(x = historic_DO_seasonalSD, y = endcen_DO_seasonalSD)) +
-  stat_poly_line() +
-  stat_poly_eq(use_label(c("eq", "R2"))) +
-  geom_point() +
-  theme_classic() +
-  labs(y= "Endcen DO_seasonalSD", x = "Historic DO_seasonalSD") +
-  ggtitle("Historic vs. endcen DO_seasonalSD")
-
-#historic DO_eventSD vs. midcen DO_eventSD
-ggplot(data = sum_diff, aes(x = historic_DO_eventSD, y = midcen_DO_eventSD)) +
-  stat_poly_line() +
-  stat_poly_eq(use_label(c("eq", "R2"))) +
-  geom_point() +
-  theme_classic() +
-  labs(y= "Midcen DO_eventSD", x = "Historic DO_eventSD") +
-  ggtitle("Historic vs. midcen DO_eventSD")
-
-#historic DO_eventSD vs. endcen DO_eventSD
-ggplot(data = sum_diff, aes(x = historic_DO_eventSD, y = endcen_DO_eventSD)) +
-  stat_poly_line() +
-  stat_poly_eq(use_label(c("eq", "R2"))) +
-  geom_point() +
-  theme_classic() +
-  labs(y= "Endcen DO_eventSD", x = "Historic DO_eventSD") +
-  ggtitle("Historic vs. endcen DO_eventSD")
+#DO
+make_regression(sum, "DO_mean", "historic", "midcen")
+make_regression(sum, "DO_mean", "historic", "endcen")
+make_regression(sum, "DO_seasonalSD", "historic", "midcen")
+make_regression(sum, "DO_seasonalSD", "historic", "endcen")
+make_regression(sum, "DO_eventSD", "historic", "midcen")
+make_regression(sum, "DO_eventSD", "historic", "endcen")
 
 ```
 
@@ -836,6 +588,7 @@ Find percentage of unsaturated/ low DO days over all years using a biological th
 ```{r}
 # Create labels for events (e.g., consecutive days with low pH or low DO) using run 
 # length encoding
+
 label_events <- function(is_event) {
   event_rle <- rle(is_event)
   labels <- ifelse(event_rle$values, cumsum(event_rle$values), NA)
@@ -847,6 +600,7 @@ label_events <- function(is_event) {
 historic_pH_events <- mpa_historic %>% 
   mutate(is_pH_low = pH < 7.75,
          pH_event = label_events(is_pH_low)) 
+
 historic_pH_event_summary <- historic_pH_events %>% 
   drop_na(pH_event) %>% 
   group_by(File, pH_event) %>% 
@@ -856,6 +610,7 @@ historic_pH_event_summary <- historic_pH_events %>%
             intensity = 7.75 - mean_pH,
             severity = intensity*duration_days,
             .groups = "drop")
+
 historic_pH_mpa_summary <- historic_pH_event_summary %>%
   group_by(File) %>%
   summarise(num_event = n(),
@@ -865,7 +620,9 @@ historic_pH_mpa_summary <- historic_pH_event_summary %>%
          mean_event_intensity = mean(intensity),
          mean_event_severity = mean(severity)) %>% 
   merge(mpa_centroids, by = "File")
+
 #total days below threshold + avg ph below threhsold per mpa
+
 historic_pH_mpa_summary2 <- historic_pH_events %>%
   filter(is_pH_low == TRUE) %>%
   group_by(File, Year) %>%

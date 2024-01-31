@@ -479,4 +479,64 @@ ggplot(data = sum_diff, aes(x = historic_DO_eventSD, y = endcen_DO_eventSD)) +
   labs(y= "Endcen DO_eventSD", x = "Historic DO_eventSD") +
   ggtitle("Historic vs. endcen DO_eventSD")
 
+###############################################
+
+#scratch for make_heatmap function
+
+make_heatmap <- function(df, variable){
+  
+  #make matrix for variable of interest
+  matrix <- sum %>%
+    select(variable, NAME, degy, period) %>%
+    pivot_wider(names_from = period, values_from = variable) %>%
+    arrange(-degy) %>%
+    select(-degy)
+  
+  rownames(matrix) <- matrix[,1]
+  
+  matrix_numeric <- matrix %>%
+    as.matrix(matrix[,2:4])
+  
+  
+  heatmap.2(matrix_numeric,Rowv = FALSE, Colv = FALSE, dendrogram = "none", 
+            main = variable,tracecol=NA, revC= TRUE,
+            margins = c(5,10), col=col, srtCol = 45, labRow = matrix$NAME)
+  
+  
+  print(matrix)
+  print(matrix_numeric)
+  
+}
+
+make_heatmap(sum, "Temp_mean")
+
+
+
+matrix <- sum %>%
+  select(Temp_mean, NAME, degy, period) %>%
+  pivot_wider(names_from = period, values_from = Temp_mean) %>%
+  arrange(-degy) %>%
+  select(-degy) %>%
+  select(historic, midcen, endcen)
+
+matrix_numeric <- matrix %>%
+  select(-NAME) %>%
+  as.matrix()
+
+row.names(matrix_numeric) <- matrix$NAME
+
+heatmap.2(matrix_numeric,Rowv = FALSE, Colv = FALSE, dendrogram = "none", 
+          main = variable,tracecol=NA, revC= TRUE,
+          margins = c(5,10), col=col, srtCol = 45, labRow = matrix$NAME)
+
+
+
+
+
+
+
+
+
+
+
 
