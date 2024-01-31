@@ -20,9 +20,10 @@ fviz_pca_biplot(pca_historic, repel = TRUE,
 
 
 make_pca <- function(df, periodt){
-  sum_period <- df %>% filter(period == periodt) 
+  
+  sum_period <- sum %>% filter(period == periodt) 
   sumsub <- sum_period %>% select(-OBJECTID,-NAME, -File, -SHORTNAME, -degx, 
-                                  -degy, -region, -period)
+                                  -degy, -region, -period, -Date) 
   
   pca <- prcomp(sumsub, scale = TRUE)
   fviz_pca_biplot(pca, repel = TRUE,
@@ -31,7 +32,15 @@ make_pca <- function(df, periodt){
                   label ="var",
                   labelsize = 3,
                   addEllipses = TRUE,
-                  title = "IPSL Historic") 
-}
+                  title = periodt) 
+  
+  fviz_pca_ind(pca, label="none", habillage=sum_period$region,
+               addEllipses=TRUE,  col.ind = sum_period$region)
+  }
 
-make_pca(sum, "endcen" )
+
+make_pca(sum, "historic" )
+
+rm(sum_period)
+rm(sumsub)
+rm(pca)

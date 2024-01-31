@@ -27,7 +27,9 @@ source(here::here("./scripts/01_model-obs.R"))
 #3 - Future exposure analysis --------------------------------------------------
 source(here::here("./reports/mpaexposure.qmd"))
 
-
-
+#write files from #3 for qgis:
+write.csv(pH_event_summary, here("data/processeddata/anom_event/pH_event_summary.csv"))
+write.csv(DO_event_summary, here("data/processeddata/anom_event/DO_event_summary.csv"))
+write.csv(temp_events, here("data/processeddata/anom_event/temp_events.csv"))
 
 

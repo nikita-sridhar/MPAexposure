@@ -429,7 +429,7 @@ sum <- mpa %>%
   
   # to get to scale of one row per mpa
   select(-...1, -Temp, -pH, -DO, -julianday, -Year, -Month, -Day) %>%
-  distinct() %>% ungroup()
+  distinct(File, .keep_all = TRUE) %>% ungroup()
 
 ```
 
@@ -443,7 +443,7 @@ PCA with all summary stats (mean, lower 10th percentile, seasonal SD, event SD)
 make_pca <- function(df, periodt){
   sum_period <- df %>% filter(period == periodt) 
   sumsub <- sum_period %>% select(-OBJECTID,-NAME, -File, -SHORTNAME, -degx, 
-                                  -degy, -region, -period)
+                                  -degy, -region, -period, -Date) 
   
   pca <- prcomp(sumsub, scale = TRUE)
   
@@ -454,9 +454,8 @@ make_pca <- function(df, periodt){
                   labelsize = 3,
                   addEllipses = TRUE,
                   title = periodt) 
-  
-  fviz_pca_ind(pca, label="none", habillage=sum_period$region,
-     addEllipses=TRUE,  col.ind = sum_period$region)
+  #fviz_pca_ind(pca, label="none", habillage=sum_period$region,
+               #addEllipses=TRUE,  col.ind = sum_period$region)
 }
 
 make_pca(sum, "historic")
@@ -483,11 +482,11 @@ make_heatmap <- function(df, sumstat, color_palette = invert_col){
                              (region == "norca") ~ "#beaed4",
                              (region == "socal") ~ "#fdc086",
                              (region == "channel") ~ "#7fc97f")) %>%
-  arrange(-degy) 
+  arrange(degy) 
 
   #making matrix numeric for heatmap to work
   matrix_numeric <- matrix %>%
-  select(-NAME, -region, -degy) %>%
+  select(-NAME, -region, -degy, -col) %>%
   select(historic, midcen, endcen) %>%
   as.matrix()
 
