@@ -762,11 +762,42 @@ make_sev_int_dur(temp_all_events, "midcen", "Ano Nuevo SMR")
 make_sev_int_dur(temp_all_events, "endcen", "Ano Nuevo SMR")
 
 
-
 ```
 
 ## Time series to put in context
 
 ```{r}
+make_temp_time_series <- function(df, periodt, site){
+
+
+temp_event_summary <- mpa_with_histclimsd %>% 
+  group_by(period) %>%
+  select(File, Date, Year,NAME, Temp, hist_T_clim, hist_T_clim_sd, period, 
+         degx, degy, julianday) %>%
+  mutate(is_temp_high = Temp > (hist_T_clim + 2*hist_T_clim_sd),
+         temp_event = label_events(is_temp_high)) %>%
+
+  
+  mpa_with_histclimsd %>% 
+  filter(period == periodt, 
+         NAME == site) %>%
+  group_by(julianday) %>%
+  mutate(clim_mean = mean(Temp, na.rm = TRUE),
+         clim_upr = clim_mean + 2 * clim_sd,
+         clim_lwr = clim_mean - 2 * clim_sd) %>%
+  ungroup() %>%
+  
+  ggplot(aes(julianday)) +
+  geom_ribbon(aes(ymin = clim_lwr, ymax = clim_upr),
+              fill = "black", alpha = 0.75) +
+  geom_line(aes(y = Temp, color = Year, group = Year),
+            alpha = 0.5) +
+  geom_line(aes(y = clim_mean), size = 1, color = "blue") +
+  scale_color_viridis_c() +
+  labs(title = paste(periodt, site)) +
+  theme_classic()
+}
+  
+make_temp_time_series(mpa, "historic","Ano Nuevo SMR")  
 
 ```
