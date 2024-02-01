@@ -583,7 +583,7 @@ label_events <- function(is_event) {
 #all event categorization for pH and DO
 events <- mpa %>%
   group_by(period) %>%
-  select(File, Date, Year,NAME, pH, DO, period, degx, degy) %>%
+  select(File, Date, Year,NAME, pH, DO, period, degx, degy, julianday) %>%
   mutate(is_pH_low = pH < 7.75,
          pH_event = label_events(is_pH_low),
         
@@ -625,12 +625,18 @@ pH_event_summary <- events %>%
   ungroup() %>%
   group_by(File) %>%
   mutate(meanannual_days_belowthresh = mean(annual_days_belowthresh),
-         meanannual_avg_pH_belowthresh = mean(annual_avg_ph_belowthresh)) %>%
+         meanannual_avg_pH_belowthresh = mean(annual_avg_ph_belowthresh)) 
   
-  #now removing event-scale variables not needed to condense to mpa scale
+#now removing event-scale variables not needed to condense to mpa scale
+pH_mpa_summary <- pH_event_summary %>%
   select(-duration_days, -event_begin, -event_mean, -intensity, 
-         -severity, -is_pH_low) %>%
-  distinct(period, pH_event, .keep_all = TRUE)
+         -severity, -is_pH_low,-pH_event, -julianday) %>%
+  distinct(period, File, .keep_all = TRUE) 
+
+#used later
+pH_all_events <- left_join(events, pH_event_summary,
+                         by = c("File", "Date", "Year", "NAME", "pH", "period", 
+                                "degx", "degy", "julianday", "is_pH_low", "pH_event"))
 ```
 
 DO:
@@ -638,7 +644,7 @@ DO:
 ```{r}
 #DO event summary
 DO_event_summary <- events %>%
-  filter(is_pH_low == TRUE) %>% 
+  filter(is_DO_low == TRUE) %>% 
   select(-pH_event, -pH, -is_pH_low, -is_pH_and_DO_low, -pH_and_DO_event) %>%
   group_by(File, DO_event) %>% 
   mutate(duration_days = n(),
@@ -664,12 +670,18 @@ DO_event_summary <- events %>%
   ungroup() %>%
   group_by(File) %>%
   mutate(meanannual_days_belowthresh = mean(annual_days_belowthresh),
-         meanannual_avg_DO_belowthresh = mean(annual_avg_DO_belowthresh)) %>%
+         meanannual_avg_DO_belowthresh = mean(annual_avg_DO_belowthresh)) 
   
-  #now removing event-scale variables not needed to condense to mpa scale
+#now removing event-scale variables not needed to condense to mpa scale
+DO_mpa_summary <- DO_event_summary %>% 
   select(-duration_days, -event_begin, -event_mean, -intensity, 
-         -severity, -is_DO_low) %>%
-  distinct(period, DO_event, .keep_all = TRUE)
+         -severity, -is_DO_low, -DO_event, -julianday) %>%
+   distinct(File, period, .keep_all = TRUE)
+
+#used later
+DO_all_events <- left_join(events, DO_event_summary,
+                         by = c("File", "Date", "Year", "NAME", "DO", "period", 
+                                "degx", "degy", "julianday", "is_DO_low", "DO_event"))
 ```
 
 ## Anomalous temp analysis
@@ -684,9 +696,10 @@ mpa_with_histclimsd <- mpa %>%
   summarise(hist_T_clim = mean(Temp), hist_T_clim_sd = sd(Temp)) %>%
   merge(mpa, by = c("File", "Month"))
 
-temp_events <- mpa_with_histclimsd %>% 
+temp_event_summary <- mpa_with_histclimsd %>% 
   group_by(period) %>%
-  select(File, Date, Year,NAME, Temp, hist_T_clim, hist_T_clim_sd, period, degx, degy) %>%
+  select(File, Date, Year,NAME, Temp, hist_T_clim, hist_T_clim_sd, period, 
+         degx, degy, julianday) %>%
   mutate(is_temp_high = Temp > (hist_T_clim + 2*hist_T_clim_sd),
          temp_event = label_events(is_temp_high)) %>%
   
@@ -716,12 +729,18 @@ temp_events <- mpa_with_histclimsd %>%
   ungroup() %>%
   group_by(File) %>%
   mutate(meanannual_days_abovethresh = mean(annual_days_abovethresh),
-         meanannual_avg_temp_abovethresh = mean(annual_avg_temp_abovethresh)) %>%
+         meanannual_avg_temp_abovethresh = mean(annual_avg_temp_abovethresh)) 
   
   #now removing event-scale variables not needed to condense to mpa scale
+temp_mpa_summary <- temp_event_summary %>% 
   select(-Temp,-duration_days, -event_begin, -event_mean, -intensity, 
-         -severity, -is_temp_high) %>%
-  distinct(period, temp_event, .keep_all = TRUE)
+         -severity, -is_temp_high, -temp_event, -julianday) %>%
+  distinct(period, File, .keep_all = TRUE)
+
+#used later
+temp_all_events <- left_join(mpa, temp_event_summary,
+                         by = c("File", "Date", "Year", "NAME", "Temp", "period", 
+                                "degx", "degy", "julianday"))
 ```
 
 ## Severity, Intensity, Duration
@@ -729,29 +748,25 @@ temp_events <- mpa_with_histclimsd %>%
 ```{r}
 #intensity/severity/duration figs
 
-historic_temp_events %>% 
-  left_join(historic_temp_event_summary, by = c("File", "temp_event")) %>% 
-  filter(NAME == "Ano Nuevo SMR") %>% 
-  ggplot(aes(julianday, Year, fill = intensity)) +
-  geom_tile() +
-  scale_fill_distiller(palette = "YlOrRd", direction = 1, na.value = "skyblue") +
-  theme_classic()
+make_sev_int_dur <- function(anom_all_events, periodt, site){
+  anom_all_events %>%
+    filter(period == periodt, NAME == site) %>%
+    ggplot(aes(julianday, Year, fill = intensity)) +
+    geom_tile() +
+    scale_fill_distiller(palette = "YlOrRd", direction = 1, na.value = "skyblue") +
+    theme_classic()
+}
 
-midcen_temp_events %>% 
-  left_join(midcen_temp_event_summary, by = c("File", "temp_event")) %>% 
-  filter(NAME == "Ano Nuevo SMR") %>% 
-  ggplot(aes(julianday, Year, fill = intensity)) +
-  geom_tile() +
-  scale_fill_distiller(palette = "YlOrRd", direction = 1, na.value = "skyblue") +
-  theme_classic()
+make_sev_int_dur(temp_all_events, "historic", "Ano Nuevo SMR")
+make_sev_int_dur(temp_all_events, "midcen", "Ano Nuevo SMR")
+make_sev_int_dur(temp_all_events, "endcen", "Ano Nuevo SMR")
 
-endcen_temp_events %>% 
-  left_join(endcen_temp_event_summary, by = c("File", "temp_event")) %>% 
-  filter(NAME == "Ano Nuevo SMR") %>% 
-  ggplot(aes(julianday, Year, fill = intensity)) +
-  geom_tile() +
-  scale_fill_distiller(palette = "YlOrRd", direction = 1, na.value = "skyblue") +
-  theme_classic()
+
+
 ```
 
-## 
+## Time series to put in context
+
+```{r}
+
+```
