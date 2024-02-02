@@ -37,6 +37,7 @@ library(gplots)
 library(ggpmisc)
 library(dendextend)
 library(colourvalues)
+library(zoo)
 ```
 
 Load MPA name file and merge with model projection. Add time periods.
@@ -440,6 +441,7 @@ PCA with all summary stats (mean, lower 10th percentile, seasonal SD, event SD)
 ```{r}
 #| label: pca
 
+
 make_pca <- function(df, periodt){
   sum_period <- df %>% filter(period == periodt) 
   sumsub <- sum_period %>% select(-OBJECTID,-NAME, -File, -SHORTNAME, -degx, 
@@ -447,7 +449,7 @@ make_pca <- function(df, periodt){
   
   pca <- prcomp(sumsub, scale = TRUE)
   
-  fviz_pca_biplot(pca, repel = TRUE,
+  plot <- fviz_pca_biplot(pca, repel = TRUE,
                   col.var = "black",
                   col.ind = sum_period$region,
                   label ="var",
@@ -456,11 +458,14 @@ make_pca <- function(df, periodt){
                   title = periodt) 
   #fviz_pca_ind(pca, label="none", habillage=sum_period$region,
                #addEllipses=TRUE,  col.ind = sum_period$region)
+  
+  ggsave(here(paste("./figs/pca/pca",periodt,".png")), plot)
 }
 
 make_pca(sum, "historic")
 make_pca(sum, "midcen")
 make_pca(sum, "endcen") #need to rotate by changing sumsub to sumsub[,-1] inside prcomp
+
 
 ```
 
@@ -492,10 +497,15 @@ make_heatmap <- function(df, sumstat, color_palette = invert_col){
 
   row.names(matrix_numeric) <- matrix$NAME
 
+  jpeg(file=here(paste("./figs/heatmap/heatmap",sumstat,".jpeg")), res = 100)
   heatmap.2(matrix_numeric, Rowv = FALSE, Colv = FALSE, dendrogram = "none", 
           main = sumstat, tracecol=NA, revC= TRUE,
           margins = c(5,10), col= color_palette, srtCol = 45, 
           labRow = matrix$NAME, RowSideColors = matrix$col)
+  dev.off()
+
+  
+  #can try adding an if statement, if argument for save = true, then save file. default is false.
 }
 
 #Temp heatmaps
@@ -518,6 +528,8 @@ make_heatmap(sum, "DO_high10")
 make_heatmap(sum, "DO_low10")
 make_heatmap(sum, "DO_eventSD")
 make_heatmap(sum, "DO_seasonalSD")
+
+
 ```
 
 ## Regressions
@@ -532,12 +544,15 @@ make_regression <- function(df, sumstat, period1, period2){
    select(sumstat, period, NAME, File) %>%
    pivot_wider(names_from = period, values_from = sumstat) 
  
- ggplot(data = plot_matrix, aes_string(x = period1, y = period2)) +
+ plot <- ggplot(data = plot_matrix, aes_string(x = period1, y = period2)) +
    stat_poly_line() +
    stat_poly_eq(use_label(c("eq", "R2"))) +
    geom_point() +
    theme_classic() +
    ggtitle(sumstat)
+ 
+  ggsave(here(paste("./figs/regression/regression",sumstat,period2,".png")), plot)
+
 }
 
 #temp
@@ -754,7 +769,11 @@ make_sev_int_dur <- function(anom_all_events, periodt, site){
     ggplot(aes(julianday, Year, fill = intensity)) +
     geom_tile() +
     scale_fill_distiller(palette = "YlOrRd", direction = 1, na.value = "skyblue") +
-    theme_classic()
+    theme_classic() +
+    ggtitle(paste(anom_all_events, periodt, site))
+  
+    ggsave(here(paste("./figs/sevintdur/sevintdur",anom_all_events,periodt,site,".png")), plot)
+
 }
 
 make_sev_int_dur(temp_all_events, "historic", "Ano Nuevo SMR")
@@ -767,24 +786,20 @@ make_sev_int_dur(temp_all_events, "endcen", "Ano Nuevo SMR")
 ## Time series to put in context
 
 ```{r}
+
+#this fig shows time series in julian days w/ envelope wrt given period's SD (NOT historic, as it should be for calculating anomalous event!)
+
 make_temp_time_series <- function(df, periodt, site){
 
-
-temp_event_summary <- mpa_with_histclimsd %>% 
-  group_by(period) %>%
-  select(File, Date, Year,NAME, Temp, hist_T_clim, hist_T_clim_sd, period, 
-         degx, degy, julianday) %>%
-  mutate(is_temp_high = Temp > (hist_T_clim + 2*hist_T_clim_sd),
-         temp_event = label_events(is_temp_high)) %>%
-
-  
-  mpa_with_histclimsd %>% 
+df %>% 
   filter(period == periodt, 
          NAME == site) %>%
+  mutate(sliding_sd = roll_sd(Temp, 30, fill = NA)) %>% 
   group_by(julianday) %>%
   mutate(clim_mean = mean(Temp, na.rm = TRUE),
+         clim_sd = mean(sliding_sd, na.rm = TRUE),
          clim_upr = clim_mean + 2 * clim_sd,
-         clim_lwr = clim_mean - 2 * clim_sd) %>%
+         clim_lwr = clim_mean - 2 * clim_sd) %>% 
   ungroup() %>%
   
   ggplot(aes(julianday)) +
@@ -794,10 +809,66 @@ temp_event_summary <- mpa_with_histclimsd %>%
             alpha = 0.5) +
   geom_line(aes(y = clim_mean), size = 1, color = "blue") +
   scale_color_viridis_c() +
-  labs(title = paste(periodt, site)) +
-  theme_classic()
+  theme_classic() 
 }
+
+make_pH_time_series <- function(df, periodt, site){
+
+df %>% 
+  filter(period == periodt, 
+         NAME == site) %>%
+  mutate(sliding_sd = roll_sd(pH, 30, fill = NA)) %>% 
+  group_by(julianday) %>%
+  mutate(clim_mean = mean(pH, na.rm = TRUE),
+         clim_sd = mean(sliding_sd, na.rm = TRUE),
+         clim_upr = clim_mean + 2 * clim_sd,
+         clim_lwr = clim_mean - 2 * clim_sd) %>% 
+  ungroup() %>%
   
-make_temp_time_series(mpa, "historic","Ano Nuevo SMR")  
+  ggplot(aes(julianday)) +
+  geom_ribbon(aes(ymin = clim_lwr, ymax = clim_upr),
+              fill = "black", alpha = 0.75) +
+  geom_line(aes(y = pH, color = Year, group = Year),
+            alpha = 0.5) +
+  geom_line(aes(y = clim_mean), size = 1, color = "blue") +
+  scale_color_viridis_c() +
+  theme_classic() 
+}
+
+make_DO_time_series <- function(df, periodt, site){
+
+df %>% 
+  filter(period == periodt, 
+         NAME == site) %>%
+  mutate(sliding_sd = roll_sd(DO, 30, fill = NA)) %>% 
+  group_by(julianday) %>%
+  mutate(clim_mean = mean(DO, na.rm = TRUE),
+         clim_sd = mean(sliding_sd, na.rm = TRUE),
+         clim_upr = clim_mean + 2 * clim_sd,
+         clim_lwr = clim_mean - 2 * clim_sd) %>% 
+  ungroup() %>%
+  
+  ggplot(aes(julianday)) +
+  geom_ribbon(aes(ymin = clim_lwr, ymax = clim_upr),
+              fill = "black", alpha = 0.75) +
+  geom_line(aes(y = DO, color = Year, group = Year),
+            alpha = 0.5) +
+  geom_line(aes(y = clim_mean), size = 1, color = "blue") +
+  scale_color_viridis_c() +
+  theme_classic() 
+}
+
+
+
+make_temp_time_series(mpa, "historic","Ano Nuevo SMR") 
+make_pH_time_series(mpa, "historic","Ano Nuevo SMR") 
+make_DO_time_series(mpa, "historic","Ano Nuevo SMR") 
+
+
+```
+
+Making figs (severity/intensity/duration and time series for individual MPAs
+
+```{r}
 
 ```

@@ -54,6 +54,36 @@ ggplot(T_clim_1mpa, aes(julianday)) +
   scale_color_viridis_c() +
   theme_classic()
 
+  #from above getting a numeric error - think its bc im passing a column as an argument into the function - need to call using sq bracket?
+ 
+  func <- function(df, periodt, site, var){ #introduce one by one to below to see where prob is
+   mpa %>% 
+    filter(period == periodt, 
+           NAME == site) %>%
+    mutate(sliding_sd = roll_sd(mpa[[var]], 30, fill = NA)) %>% 
+    group_by(julianday) %>%
+    mutate(clim_mean = mean(mpa[[var]], na.rm = TRUE),
+           clim_sd = mean(sliding_sd, na.rm = TRUE),
+           clim_upr = clim_mean + 2 * clim_sd,
+           clim_lwr = clim_mean - 2 * clim_sd) %>% 
+    ungroup() %>%
+    
+    ggplot(aes(julianday)) +
+    geom_ribbon(aes(ymin = clim_lwr, ymax = clim_upr),
+                fill = "black", alpha = 0.75) +
+    geom_line(aes(y = mpa[[var]], color = Year, group = Year),
+              alpha = 0.5) +
+    geom_line(aes(y = clim_mean), size = 1, color = "blue") +
+    scale_color_viridis_c() +
+    theme_classic() 
+}
+  
+  func(mpa, "historic","Ano Nuevo SMR", "Temp") 
+  
+testing <- sum %>%
+  mutate(thing = roll_sd(sum[[Temp]], 30, fill = NA))
+
+roll_sd(sum[["Temp"]], 30, fill = NA) #this is prob im getting in function.
 
 #function for time series but w categorizing anom based on hist clim
   make_temp_time_series <- function(df, periodt, site){
@@ -90,7 +120,10 @@ ggplot(T_clim_1mpa, aes(julianday)) +
              NAME == "Ano Nuevo SMR") %>% #make sure all NAME is unique - bc you group by or merge by File in some cases - can be applied throughout doc
       select(File, julianday, Temp) %>%
       group_by(julianday) %>% 
-      mutate(sliding_sd = roll_sd(Temp, 30, fill = NA))  %>% #troubleshoot here! 
+      rollapply(width = 30, FUN = sd, fill = NA) #change fill to add a vector with first 15 days and last 15 days for beginning and end
+    
+  
+      mutate(sliding_sd = roll_sd(Temp, 30, fill = NA))   #troubleshoot here! 
       mutate(hist_clim_mean = mean(Temp, na.rm = TRUE), #clim mean of period in question
              hist_clim_sd = mean(sliding_sd, na.rm = TRUE), #sd within 30 day window of historical period
              hist_clim_upr = hist_clim_mean + 2 * hist_clim_sd,

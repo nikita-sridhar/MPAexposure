@@ -97,8 +97,39 @@ temp_events <- mpa_with_histclimsd %>%
   distinct(period, temp_event, .keep_all = TRUE)
   
 
+#figuring out which regions to choose for sev/int/dur analysis
 
+individual_site_figs <- function(site){
 
+#sev-int-dur figs
+make_sev_int_dur(temp_all_events, "historic", site)
+make_sev_int_dur(pH_all_events, "historic", site)
+make_sev_int_dur(DO_all_events, "historic", site)
+
+make_sev_int_dur(temp_all_events, "midcen", site)
+make_sev_int_dur(pH_all_events, "midcen", site)
+make_sev_int_dur(DO_all_events, "midcen", site)
+
+make_sev_int_dur(temp_all_events, "endcen", site)
+make_sev_int_dur(pH_all_events, "endcen", site)
+make_sev_int_dur(DO_all_events, "endcen", site)
+
+#time series
+make_temp_time_series(mpa, "historic",site) 
+make_pH_time_series(mpa, "historic",site) 
+make_DO_time_series(mpa, "historic",site)
+
+make_temp_time_series(mpa, "midcen",site) 
+make_pH_time_series(mpa, "midcen",site) 
+make_DO_time_series(mpa, "midcen",site)
+
+make_temp_time_series(mpa, "endcen",site) 
+make_pH_time_series(mpa, "endcen",site) 
+make_DO_time_series(mpa, "endcen",site) 
+
+}
+
+individual_site_figs("Ano Nuevo SMR")
 
 
 
