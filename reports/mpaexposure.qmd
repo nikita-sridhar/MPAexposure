@@ -110,12 +110,6 @@ mpa_climatology <- mpa %>%
               pH_clim = mean(pH), 
               DO_clim =   mean(DO))
 
-#calculate seasonal SD 
-seasonal_SD <- mpa_climatology %>%
-  group_by(File, period) %>%
-  summarise(T_seasonalSD = sd(T_clim),
-            pH_seasonalSD = sd(pH_clim),
-            DO_seasonalSD = sd(DO_clim))
 
 #individual files per time period 
 mpa_historic_climatology <- mpa %>% 
@@ -154,8 +148,6 @@ mpaslist = unique(mpa$File)
 mpas = rep(NA, 365*121)
 julianday = rep(1:365, 121)
 interp = rep(NA, 365*121)
-pH_clim = rep(NA, 365*121)
-DO_clim = rep(NA, 365*121)
 
 #Set up a vector of julian day assignment for the 15th of each month and the first and last day of the year
 x_in <- yday(as.Date(c("2001-01-01", 
@@ -189,7 +181,7 @@ interpolate <- function(periodt, variable){
     Jan1 = as.numeric(( ((14/30) * (d[12,3])) + 
                           ((16/30) * d[1,3]) ))
 
-        y_in <- c(Jan1, d[[variable]], Dec31)
+    y_in <- c(Jan1, d[[variable]], Dec31)
     
     mod <- approx(x = x_in, #days to interpolate from
                  y = y_in, #temp values per day in x_in
@@ -222,6 +214,22 @@ interpolate("midcen", "DO_clim")
 interpolate("endcen", "DO_clim")
 ```
 
+Combine time periods into one df
+
+```{r}
+interpolated_temp <- rbind(interp_T_clim_historic,
+                           interp_T_clim_midcen,
+                           interp_T_clim_endcen)
+
+interpolated_pH <- rbind(interp_pH_clim_historic,
+                           interp_pH_clim_midcen,
+                           interp_pH_clim_endcen)
+
+interpolated_DO <- rbind(interp_DO_clim_historic,
+                           interp_DO_clim_midcen,
+                           interp_DO_clim_endcen)
+```
+
 ## Create summary stats
 
 Merge interpolated values to MPA dataset to find seasonal SD (SD of deviation between daily value and interpolated climatological value). Add other summary stats like event SD, mean, lower 10, upper 10 percentile.
@@ -229,11 +237,14 @@ Merge interpolated values to MPA dataset to find seasonal SD (SD of deviation be
 ```{r}
 #| label: summary_stats
 
-#merging interpolated datasets from prev chunks
-interpolated_temp <- rbind(historic_tempdata,midcen_tempdata,endcen_tempdata)
-interpolated_pH <- rbind(historic_pHdata, midcen_pHdata, endcen_pHdata)
-interpolated_DO <- rbind(historic_DOdata, midcen_DOdata, endcen_DOdata)
+#calculate seasonal SD 
+seasonal_SD <- mpa_climatology %>%
+  group_by(File, period) %>%
+  summarise(T_seasonalSD = sd(T_clim),
+            pH_seasonalSD = sd(pH_clim),
+            DO_seasonalSD = sd(DO_clim))
 
+#put all summary stats together
 sum <- mpa %>%
  
   #merge interpolated climatologies to mpa. (used to calculate event sd)
@@ -243,9 +254,9 @@ sum <- mpa %>%
   
   #subtract actual values - interpolated climatology values 
   #filtered for only upwelling months!!
-  mutate(temp_deviation = Temp - interp_temp,
-         pH_deviation = pH - interp_pH,
-         DO_deviation = DO - interp_DO) %>%
+  mutate(temp_deviation = Temp - T_clim,
+         pH_deviation = pH - pH_clim,
+         DO_deviation = DO - DO_clim) %>%
   filter(Month == c(5,6,7,8,9)) %>%
   
   #find event based SD 
@@ -253,10 +264,11 @@ sum <- mpa %>%
     mutate(T_eventSD = sd(temp_deviation),
             pH_eventSD = sd(pH_deviation),
             DO_eventSD = sd(DO_deviation)) %>%
-    select(-interp_temp, -interp_pH, -interp_DO, -temp_deviation,
+  ungroup() %>%
+    select(-T_clim, -pH_clim, -DO_clim, -temp_deviation,
          -pH_deviation, -DO_deviation) %>%
   
-    #merge seasonal SD calculated earlier from climatologies
+    #merge seasonal SD 
     merge(seasonal_SD, by = c("File", "period")) %>%
   
     #adding other summary stats - mean, low 10th and upper 10th percentiles
@@ -315,11 +327,11 @@ col <- colorRampPalette(brewer.pal(9,"YlOrRd"))(256)
 invert_col <- colorRampPalette(rev(brewer.pal(9,"YlOrRd")))(256)
 
 
-make_heatmap <- function(df, sumstat, color_palette = invert_col){
+make_heatmap <- function(sumstat, color_palette = invert_col){
   
   #make matrix for variable of interest
-  matrix <- df %>%
-  select(sumstat, NAME, degy, period, region) %>%
+  matrix <- sum %>%
+  select(!!sym(sumstat), NAME, degy, period, region) %>%
   pivot_wider(names_from = period, values_from = sumstat) %>%
   mutate(col = case_when((region == "centralca") ~ "#ffff99", 
                              (region == "norca") ~ "#beaed4",
@@ -335,38 +347,38 @@ make_heatmap <- function(df, sumstat, color_palette = invert_col){
 
   row.names(matrix_numeric) <- matrix$NAME
 
-  jpeg(file=here(paste("./figs/heatmap/heatmap",sumstat,".jpeg")), res = 100)
+  jpeg(file=here(paste("./figs/heatmap/heatmap",sumstat,".jpeg", 
+                       sep = "_")), res = 100)
+  
   heatmap.2(matrix_numeric, Rowv = FALSE, Colv = FALSE, dendrogram = "none", 
           main = sumstat, tracecol=NA, revC= TRUE,
-          margins = c(5,10), col= color_palette, srtCol = 45, 
-          labRow = matrix$NAME, RowSideColors = matrix$col)
+          margins = c(3,7), col= color_palette, srtCol = 360, 
+          labRow = matrix$NAME, RowSideColors = matrix$col, cexRow = 0.5,
+          cexCol = 1)
   dev.off()
 
-  
-  #can try adding an if statement, if argument for save = true, then save file. default is false.
 }
 
 #Temp heatmaps
-make_heatmap(sum, "Temp_mean", col)
-make_heatmap(sum, "Temp_high10", col)
-make_heatmap(sum, "Temp_low10", col)
-make_heatmap(sum, "T_eventSD", col)
-make_heatmap(sum, "T_seasonalSD", col)
+make_heatmap("Temp_mean", col)
+make_heatmap("Temp_high10", col)
+make_heatmap("Temp_low10", col)
+make_heatmap("T_eventSD", col)
+make_heatmap("T_seasonalSD", col)
 
 #pH heatmaps
-make_heatmap(sum, "pH_mean")
-make_heatmap(sum, "pH_high10")
-make_heatmap(sum, "pH_low10")
-make_heatmap(sum, "pH_eventSD")
-make_heatmap(sum, "pH_seasonalSD")
+make_heatmap("pH_mean")
+make_heatmap("pH_high10")
+make_heatmap("pH_low10")
+make_heatmap("pH_eventSD")
+make_heatmap("pH_seasonalSD")
 
 #DO heatmaps
-make_heatmap(sum, "DO_mean")
-make_heatmap(sum, "DO_high10")
-make_heatmap(sum, "DO_low10")
-make_heatmap(sum, "DO_eventSD")
-make_heatmap(sum, "DO_seasonalSD")
-
+make_heatmap("DO_mean")
+make_heatmap("DO_high10")
+make_heatmap("DO_low10")
+make_heatmap("DO_eventSD")
+make_heatmap("DO_seasonalSD")
 
 ```
 
@@ -376,8 +388,8 @@ Supplementing heatmaps by looking at correlation between historic and future tim
 
 ```{r}
 
-make_regression <- function(df, sumstat, period1, period2){
- plot_matrix <- df %>%
+make_regression <- function(sumstat, period1, period2){
+ plot_matrix <- sum %>%
    filter(period == period1 | period == period2) %>%
    select(sumstat, period, NAME, File) %>%
    pivot_wider(names_from = period, values_from = sumstat) 
@@ -393,29 +405,29 @@ make_regression <- function(df, sumstat, period1, period2){
 
 }
 
-#temp
-make_regression(sum, "Temp_mean", "historic", "midcen")
-make_regression(sum, "Temp_mean", "historic", "endcen")
-make_regression(sum, "T_seasonalSD", "historic", "midcen")
-make_regression(sum, "T_seasonalSD", "historic", "endcen")
-make_regression(sum, "T_eventSD", "historic", "midcen")
-make_regression(sum, "T_eventSD", "historic", "endcen")
-
-#pH
-make_regression(sum, "pH_mean", "historic", "midcen")
-make_regression(sum, "pH_mean", "historic", "endcen")
-make_regression(sum, "pH_seasonalSD", "historic", "midcen")
-make_regression(sum, "pH_seasonalSD", "historic", "endcen")
-make_regression(sum, "pH_eventSD", "historic", "midcen")
-make_regression(sum, "pH_eventSD", "historic", "endcen")
-
-#DO
-make_regression(sum, "DO_mean", "historic", "midcen")
-make_regression(sum, "DO_mean", "historic", "endcen")
-make_regression(sum, "DO_seasonalSD", "historic", "midcen")
-make_regression(sum, "DO_seasonalSD", "historic", "endcen")
-make_regression(sum, "DO_eventSD", "historic", "midcen")
-make_regression(sum, "DO_eventSD", "historic", "endcen")
+    #temp
+    make_regression("Temp_mean", "historic", "midcen")
+    make_regression("Temp_mean", "historic", "endcen")
+    make_regression("T_seasonalSD", "historic", "midcen")
+    make_regression("T_seasonalSD", "historic", "endcen")
+    make_regression("T_eventSD", "historic", "midcen")
+    make_regression("T_eventSD", "historic", "endcen")
+    
+    #pH
+    make_regression("pH_mean", "historic", "midcen")
+    make_regression("pH_mean", "historic", "endcen")
+    make_regression("pH_seasonalSD", "historic", "midcen")
+    make_regression("pH_seasonalSD", "historic", "endcen")
+    make_regression("pH_eventSD", "historic", "midcen")
+    make_regression("pH_eventSD", "historic", "endcen")
+    
+    #DO
+    make_regression("DO_mean", "historic", "midcen")
+    make_regression("DO_mean", "historic", "endcen")
+    make_regression("DO_seasonalSD", "historic", "midcen")
+    make_regression("DO_seasonalSD", "historic", "endcen")
+    make_regression("DO_eventSD", "historic", "midcen")
+    make_regression("DO_eventSD", "historic", "endcen")
 
 ```
 
@@ -600,39 +612,69 @@ temp_all_events <- left_join(mpa, temp_event_summary,
 
 ```{r}
 
-#sev-int-dur - not function :(
-historic_sevintdur_ano <- temp_all_events %>%
-    filter(period == "endcen", NAME == "Soquel Canyon SMCA") %>%
-    ggplot(aes(julianday, Year, fill = intensity)) +
-    geom_tile() +
-    scale_fill_distiller(palette = "YlOrRd", direction = 1, na.value = "skyblue") +
-    theme_classic() +
-    ggtitle("End Cen Soquel Canyon SMCA")
-
-#central
-ggsave(here("./figs/sevintdur/central/sevintdur_endcen_soquelcanyon.png"), historic_sevintdur_ano)
-
-
-
-
-#intensity/severity/duration function (takes AGES TO LOAD) - try not taking in anom_all_events, instead creating this inside the function. 
-
-make_sev_int_dur <- function(anom_all_events, periodt, site){
-  anom_all_events %>%
+#temp
+temp_sev_int_dur <- function(periodt, site){
+  
+  plot <- temp_all_events %>%
     filter(period == periodt, NAME == site) %>%
     ggplot(aes(julianday, Year, fill = intensity)) +
     geom_tile() +
-    scale_fill_distiller(palette = "YlOrRd", direction = 1, na.value = "skyblue") +
+    scale_fill_distiller(palette = "YlOrRd", direction = 1, 
+                         na.value = "skyblue") +
     theme_classic() +
-    ggtitle(paste(anom_all_events, periodt, site))
-  
-    ggsave(here(paste("./figs/sevintdur/sevintdur",anom_all_events,periodt,site,".png")), plot)
+    ggtitle(paste(periodt, "Heat events at", site)) 
+    
+ggsave(here(paste("./figs/sevintdur/","temp_events", periodt, site,".png",sep="_")), plot)
 
 }
-make_sev_int_dur(DO_all_events, "historic", "Ano Nuevo SMR")
 
+temp_sev_int_dur("historic", "Ano Nuevo SMR")
+temp_sev_int_dur("midcen", "Ano Nuevo SMR")
+temp_sev_int_dur("endcen", "Ano Nuevo SMR")
+```
 
+```{r}
+#pH
+pH_sev_int_dur <- function(periodt, site){
+  
+  plot <- pH_all_events %>%
+    filter(period == periodt, NAME == site) %>%
+    ggplot(aes(julianday, Year, fill = intensity)) +
+    geom_tile() +
+    scale_fill_distiller(palette = "YlOrRd", direction = 1, 
+                         na.value = "skyblue") +
+    theme_classic() +
+    ggtitle(paste(periodt, "pH events at", site)) 
+    
+ggsave(here(paste("./figs/sevintdur/","pH_events", periodt, site,".png",sep="_")), plot)
 
+}
+
+pH_sev_int_dur("historic", "Ano Nuevo SMR")
+pH_sev_int_dur("midcen", "Ano Nuevo SMR")
+pH_sev_int_dur("endcen", "Ano Nuevo SMR")
+```
+
+```{r}
+#DO
+DO_sev_int_dur <- function(periodt, site){
+  
+  plot <- DO_all_events %>%
+    filter(period == periodt, NAME == site) %>%
+    ggplot(aes(julianday, Year, fill = intensity)) +
+    geom_tile() +
+    scale_fill_distiller(palette = "YlOrRd", direction = 1, 
+                         na.value = "skyblue") +
+    theme_classic() +
+    ggtitle(paste(periodt, "DO events at", site)) 
+    
+ggsave(here(paste("./figs/sevintdur/","DO_events", periodt, site,".png",sep="_")), plot)
+
+}
+
+DO_sev_int_dur("historic", "Ano Nuevo SMR")
+DO_sev_int_dur("midcen", "Ano Nuevo SMR")
+DO_sev_int_dur("endcen", "Ano Nuevo SMR")
 ```
 
 ## Time series to put in context
@@ -641,9 +683,9 @@ make_sev_int_dur(DO_all_events, "historic", "Ano Nuevo SMR")
 
 #this fig shows time series in julian days w/ envelope wrt given period's SD (NOT historic, as it should be for calculating anomalous event!)
 
-make_temp_time_series <- function(df, periodt, site){
+make_temp_time_series <- function(periodt, site){
 
-df %>% 
+mpa %>% 
   filter(period == periodt, 
          NAME == site) %>%
   mutate(sliding_sd = roll_sd(Temp, 30, fill = NA)) %>% 
@@ -712,7 +754,7 @@ df %>%
 
 
 
-make_temp_time_series(mpa, "historic","Ano Nuevo SMR") 
+make_temp_time_series("historic","Ano Nuevo SMR") 
 make_pH_time_series(mpa, "historic","Ano Nuevo SMR") 
 make_DO_time_series(mpa, "historic","Ano Nuevo SMR") 
 

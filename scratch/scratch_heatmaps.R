@@ -593,3 +593,4 @@ region_cols <- colour_vales(matrix$region, c("darkred", "forestgreen", "orange",
     make_heatmap(sum, "Temp_mean", col)
 
 
+ 
