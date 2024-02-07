@@ -139,7 +139,7 @@ mpa_endcen_climatology <- mpa %>%
 
 Create a mock dataset interpolating climatologies to get daily values in the absence of natural event-based variability. Subtract actual daily values. Find standard deviation of these differences (on a daily scale).
 
-Setup for interpolation:
+**Setup for interpolation:**
 
 Need to create a day1 and day365 proxies. Approx function can only interpolate not extrapolate so without this, you can't interpolate days 1-14 and 350-365.
 
@@ -153,7 +153,7 @@ Need to create a day1 and day365 proxies. Approx function can only interpolate n
 mpaslist = unique(mpa$File) 
 mpas = rep(NA, 365*121)
 julianday = rep(1:365, 121)
-T_clim = rep(NA, 365*121)
+interp = rep(NA, 365*121)
 pH_clim = rep(NA, 365*121)
 DO_clim = rep(NA, 365*121)
 
@@ -169,181 +169,57 @@ x_out <- (1:365)
 
 ```
 
-Interpolation for temp
+Function to interpolate julian days (1-365) per MPA per variable and time period
 
 ```{r}
-interpolate <- function(periodt){
+interpolate <- function(periodt, variable){
   
   mpa_period_climatology <- mpa_climatology %>%
-  filter(period == periodt)
+    filter(period == periodt)
   
   for (i in 1:length(mpaslist)){
-  d = mpa_period_climatology %>% filter(File == mpaslist[i]) %>% select(File,Month,T_clim)
-  #use a weighted average. for dec 31, slightly more than half weight to dec, little less than   half weight to jan. for jan 1, slightly more weight to jan, little less weight to dec
-  Dec31 = as.numeric(( ((16/30) * (d[12,3])) + 
-                         ((14/30) * d[1,3]) )) 
-  Jan1 = as.numeric(( ((14/30) * (d[12,3])) + 
-                        ((16/30) * d[1,3]) ))
-  # a list of y-values of the climatological temp on each of the days in x_in
-  y_in <- c(Jan1, d$T_clim, Dec31)
+    
+    d <- mpa_period_climatology %>% 
+      filter(File == mpaslist[i]) %>% 
+      select(File,Month, !!sym(variable))
+    
+#use a weighted average. for dec 31, slightly more than half weight to dec, little less than   half weight to jan. for jan 1, slightly more weight to jan, little less weight to dec
+    Dec31 = as.numeric(( ((16/30) * (d[12,3])) + 
+                           ((14/30) * d[1,3]) )) 
+    Jan1 = as.numeric(( ((14/30) * (d[12,3])) + 
+                          ((16/30) * d[1,3]) ))
 
-  mod = approx(x = x_in,  #julian day for the 15th of each month &first/ last day of the year
-               y = y_in, #temp values per day in x_in
-               xout = x_out) #list of all the days of the year not  in x_in to interpolate to
+        y_in <- c(Jan1, d[[variable]], Dec31)
+    
+    mod <- approx(x = x_in, #days to interpolate from
+                 y = y_in, #temp values per day in x_in
+                 xout = x_out) #1-365 days to interpolate out to
+    
+    #I don't understand this part
+    mpas[((i-1)*365+1):(i*365)] <- mpaslist[i] #rep(mpaslist[1], 365)
+    interp[((i-1)*365+1):(i*365)] <- mod$y
+  }
   
-  mpas[((i-1)*365+1):(i*365)] <- mpaslist[i] #rep(mpaslist[1], 365)
-  T_clim[((i-1)*365+1):(i*365)] <- mod$y
-}
-
-
-df <- data.frame(mpas, julianday, T_clim) %>%
-                rename(File = mpas) %>%
-                mutate(period = periodt) %>%
-                rename(interp_temp = T_clim)
-
-assign(x = paste("tempdata",periodt, sep="_"), value = df, envir = globalenv())
-
-}
-
-
-interpolate("historic")
-interpolate("midcen")
-interpolate("endcen")
-```
-
-Interpolation for pH
-
-```{r, warning=FALSE, message=FALSE, results='hide'}
-#| label: inter_pH
-#| message: false
-#| warning: false
-
-#HISTORIC
-for (i in 1:length(mpaslist)){
-  print(i)
-  d = mpa_historic_climatology %>% filter(File == mpaslist[i]) %>% select(pH_clim)
-  Dec31 = as.numeric(( ((16/30) * (d[12,2])) + ((14/30) * d[1,2]) ))
-  Jan1 = as.numeric(( ((14/30) * (d[12,2])) + ((16/30) * d[1,2]) ))
-
-  y_in <- c(Jan1, d$pH_clim, Dec31)
-
-  mod = approx(x = x_in, y = y_in, xout = x_out) 
-  mpas[((i-1)*365+1):(i*365)] <- mpaslist[i]
-  pH_clim[((i-1)*365+1):(i*365)] <- mod$y
-}
-
-historic_pHdata = data.frame(mpas, julianday,pH_clim)
-historic_pHdata <- historic_pHdata %>%
-  rename(File = mpas) %>%
-  mutate(period = "historic") %>%
-  rename(interp_pH = pH_clim)
-
-#MIDCEN
-for (i in 1:length(mpaslist)){
-  print(i)
-  d = mpa_midcen_climatology %>% filter(File == mpaslist[i]) %>% select(pH_clim)
-  Dec31 = as.numeric(( ((16/30) * (d[12,2])) + ((14/30) * d[1,2]) ))
-  Jan1 = as.numeric(( ((14/30) * (d[12,2])) + ((16/30) * d[1,2]) ))
-
-  y_in <- c(Jan1, d$pH_clim, Dec31)
-
-  mod = approx(x = x_in, y = y_in, xout = x_out) 
-  mpas[((i-1)*365+1):(i*365)] <- mpaslist[i]
-  pH_clim[((i-1)*365+1):(i*365)] <- mod$y
-}
-
-midcen_pHdata = data.frame(mpas, julianday,pH_clim)
-midcen_pHdata <- midcen_pHdata %>%
-  rename(File = mpas) %>%
-  mutate(period = "midcen") %>%
-  rename(interp_pH = pH_clim)
-
-#ENDCEN
-for (i in 1:length(mpaslist)){
-  print(i)
-  d = mpa_endcen_climatology %>% filter(File == mpaslist[i]) %>% select(pH_clim)
-  Dec31 = as.numeric(( ((16/30) * (d[12,2])) + ((14/30) * d[1,2]) ))
-  Jan1 = as.numeric(( ((14/30) * (d[12,2])) + ((16/30) * d[1,2]) ))
-
-  y_in <- c(Jan1, d$pH_clim, Dec31)
-
-  mod = approx(x = x_in, y = y_in, xout = x_out) 
-  mpas[((i-1)*365+1):(i*365)] <- mpaslist[i]
-  pH_clim[((i-1)*365+1):(i*365)] <- mod$y
-}
-
-endcen_pHdata = data.frame(mpas, julianday,pH_clim)
-endcen_pHdata <- endcen_pHdata %>%
-  rename(File = mpas) %>%
-  mutate(period = "endcen") %>%
-  rename(interp_pH = pH_clim)
-
-
-```
-
-Interpolation for DO:
-
-```{r,warning=FALSE, message=FALSE, results='hide'}
-#| label: inter_DO
-#| message: false
-#| warning: false
-
-#HISTORIC
-for (i in 1:length(mpaslist)){
-  print(i)
-  d = mpa_historic_climatology %>% filter(File == mpaslist[i]) %>% select(DO_clim)
-  Dec31 = as.numeric(( ((16/30) * (d[12,2])) + ((14/30) * d[1,2]) ))
-  Jan1 = as.numeric(( ((14/30) * (d[12,2])) + ((16/30) * d[1,2]) ))
-  y_in <- c(Jan1, d$DO_clim, Dec31)
+  df <- data.frame(mpas, julianday, interp) %>%
+    rename(File = mpas) %>%
+    mutate(period = periodt) %>%
+    rename(!!sym(variable) := interp)
   
-  mod = approx(x = x_in, y = y_in, xout = x_out) 
-  mpas[((i-1)*365+1):(i*365)] <- mpaslist[i]
-  DO_clim[((i-1)*365+1):(i*365)] <- mod$y
-}
-
-historic_DOdata = data.frame(mpas, julianday,DO_clim)
-historic_DOdata <- historic_DOdata %>%
-  rename(File = mpas) %>%
-  mutate(period = "historic") %>%
-  rename(interp_DO = DO_clim)
-
-#MIDCEN
-for (i in 1:length(mpaslist)){
-  print(i)
-  d = mpa_midcen_climatology %>% filter(File == mpaslist[i]) %>% select(DO_clim)
-  Dec31 = as.numeric(( ((16/30) * (d[12,2])) + ((14/30) * d[1,2]) ))
-  Jan1 = as.numeric(( ((14/30) * (d[12,2])) + ((16/30) * d[1,2]) ))
-  y_in <- c(Jan1, d$DO_clim, Dec31)
+  assign(x = paste("interp",variable,periodt, sep="_"), value = df, envir = globalenv())
   
-  mod = approx(x = x_in, y = y_in, xout = x_out) 
-  mpas[((i-1)*365+1):(i*365)] <- mpaslist[i]
-  DO_clim[((i-1)*365+1):(i*365)] <- mod$y
 }
 
-midcen_DOdata = data.frame(mpas, julianday,DO_clim)
-midcen_DOdata <- midcen_DOdata %>%
-  rename(File = mpas) %>%
-  mutate(period = "midcen")  %>%
-  rename(interp_DO = DO_clim)
+interpolate("historic", "T_clim")
+interpolate("midcen", "T_clim")
+interpolate("endcen", "T_clim")
 
-#ENDCEN
-for (i in 1:length(mpaslist)){
-  print(i)
-  d = mpa_endcen_climatology %>% filter(File == mpaslist[i]) %>% select(DO_clim)
-  Dec31 = as.numeric(( ((16/30) * (d[12,2])) + ((14/30) * d[1,2]) ))
-  Jan1 = as.numeric(( ((14/30) * (d[12,2])) + ((16/30) * d[1,2]) ))
-  y_in <- c(Jan1, d$DO_clim, Dec31)
-  
-  mod = approx(x = x_in, y = y_in, xout = x_out) 
-  mpas[((i-1)*365+1):(i*365)] <- mpaslist[i]
-  DO_clim[((i-1)*365+1):(i*365)] <- mod$y
-}
+interpolate("historic", "pH_clim")
+interpolate("midcen", "pH_clim")
+interpolate("endcen", "pH_clim")
 
-endcen_DOdata = data.frame(mpas, julianday,DO_clim)
-endcen_DOdata <- endcen_DOdata %>%
-  rename(File = mpas) %>%
-  mutate(period = "endcen")  %>%
-  rename(interp_DO = DO_clim)
+interpolate("historic", "DO_clim")
+interpolate("midcen", "DO_clim")
+interpolate("endcen", "DO_clim")
 ```
 
 ## Create summary stats
