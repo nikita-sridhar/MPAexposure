@@ -176,11 +176,10 @@ mpa_historic_climatology <- mpa_climatology %>%
 
 #HISTORIC
 for (i in 1:length(mpaslist)){
-  print(i)
-  d = mpa_historic_climatology %>% filter(File == mpaslist[i]) %>% select(T_clim)
+  d = mpa_historic_climatology %>% filter(File == mpaslist[i]) %>% select(File,Month,T_clim)
   #use a weighted average to get these
-  Dec31 = as.numeric(( ((16/30) * (d[12,2])) + ((14/30) * d[1,2]) ))
-  Jan1 = as.numeric(( ((14/30) * (d[12,2])) + ((16/30) * d[1,2]) ))
+  Dec31 = as.numeric(( ((16/30) * (d[12,3])) + ((14/30) * d[1,3]) ))
+  Jan1 = as.numeric(( ((14/30) * (d[12,3])) + ((16/30) * d[1,3]) ))
   # a list of y-values of the climatological temp on each of the days in x_in
   y_in <- c(Jan1, d$T_clim, Dec31)
 
@@ -189,13 +188,11 @@ for (i in 1:length(mpaslist)){
   T_clim[((i-1)*365+1):(i*365)] <- mod$y
 }
 
-historic_tempdata = data.frame(mpas, julianday,T_clim)
-historic_tempdata <- historic_tempdata %>%
+historic_tempdata <- data.frame(mpas, julianday,T_clim) %>%
   rename(File = mpas) %>%
   mutate(period = "historic") %>%
   rename(interp_temp = T_clim)
 
-#Later we create a julian day variable in our OG mpa dataset, to merge this to all the rows on the dataset by filename and day and then have the mean daily climatological value for each row. 
 
 
 #MIDCEN
@@ -708,7 +705,7 @@ Categorized as anomalous event if temp exceeds historical climatology's temp for
 mpa_with_histclimsd <- mpa %>%
   filter(period == "historic") %>%
   group_by(File, Month) %>%
-  summarise(hist_T_clim = mean(Temp), hist_T_clim_sd = sd(Temp)) %>%
+  summarise(hist_T_clim = mean(Temp), hist_T_clim_sd = sd(Temp)) %>% #this sd is temp over all days in Jan - rather than average of each jan's SD - does it make a difference? 
   merge(mpa, by = c("File", "Month"))
 
 temp_event_summary <- mpa_with_histclimsd %>% 
@@ -761,7 +758,23 @@ temp_all_events <- left_join(mpa, temp_event_summary,
 ## Severity, Intensity, Duration
 
 ```{r}
-#intensity/severity/duration figs
+
+#sev-int-dur - not function :(
+historic_sevintdur_ano <- temp_all_events %>%
+    filter(period == "endcen", NAME == "Soquel Canyon SMCA") %>%
+    ggplot(aes(julianday, Year, fill = intensity)) +
+    geom_tile() +
+    scale_fill_distiller(palette = "YlOrRd", direction = 1, na.value = "skyblue") +
+    theme_classic() +
+    ggtitle("End Cen Soquel Canyon SMCA")
+
+#central
+ggsave(here("./figs/sevintdur/central/sevintdur_endcen_soquelcanyon.png"), historic_sevintdur_ano)
+
+
+
+
+#intensity/severity/duration function (takes AGES TO LOAD) - try not taking in anom_all_events, instead creating this inside the function. 
 
 make_sev_int_dur <- function(anom_all_events, periodt, site){
   anom_all_events %>%
@@ -775,10 +788,8 @@ make_sev_int_dur <- function(anom_all_events, periodt, site){
     ggsave(here(paste("./figs/sevintdur/sevintdur",anom_all_events,periodt,site,".png")), plot)
 
 }
+make_sev_int_dur(DO_all_events, "historic", "Ano Nuevo SMR")
 
-make_sev_int_dur(temp_all_events, "historic", "Ano Nuevo SMR")
-make_sev_int_dur(temp_all_events, "midcen", "Ano Nuevo SMR")
-make_sev_int_dur(temp_all_events, "endcen", "Ano Nuevo SMR")
 
 
 ```
