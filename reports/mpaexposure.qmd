@@ -489,10 +489,10 @@ pH_event_summary <- events %>%
   ungroup() %>%
 
   #mpa summary (annual)
-  group_by(File, Year) %>%
+  group_by(File, Year, period) %>%
   mutate(annual_days_belowthresh = n(), annual_avg_ph_belowthresh = mean(pH)) %>%
   ungroup() %>%
-  group_by(File) %>%
+  group_by(File, period) %>%
   mutate(meanannual_days_belowthresh = mean(annual_days_belowthresh),
          meanannual_avg_pH_belowthresh = mean(annual_avg_ph_belowthresh)) 
   
@@ -500,7 +500,10 @@ pH_event_summary <- events %>%
 pH_mpa_summary <- pH_event_summary %>%
   select(-duration_days, -event_begin, -event_mean, -intensity, 
          -severity, -is_pH_low,-pH_event, -julianday) %>%
-  distinct(period, File, .keep_all = TRUE) 
+  distinct(period, File, .keep_all = TRUE) %>%
+  #renaming vars just for maps in next section
+  rename("Mean num of events in a year" = "meanannual_days_belowthresh",
+         "Mean pH during event"="meanannual_avg_pH_belowthresh")
 
 #used later
 pH_all_events <- left_join(events, pH_event_summary,
@@ -535,10 +538,10 @@ DO_event_summary <- events %>%
   ungroup() %>%
 
   #mpa summary (annual)
-  group_by(File, Year) %>%
+  group_by(File, Year, period) %>%
   mutate(annual_days_belowthresh = n(), annual_avg_DO_belowthresh = mean(DO)) %>%
   ungroup() %>%
-  group_by(File) %>%
+  group_by(File, period) %>%
   mutate(meanannual_days_belowthresh = mean(annual_days_belowthresh),
          meanannual_avg_DO_belowthresh = mean(annual_avg_DO_belowthresh)) 
   
@@ -546,7 +549,10 @@ DO_event_summary <- events %>%
 DO_mpa_summary <- DO_event_summary %>% 
   select(-duration_days, -event_begin, -event_mean, -intensity, 
          -severity, -is_DO_low, -DO_event, -julianday) %>%
-   distinct(File, period, .keep_all = TRUE)
+   distinct(File, period, .keep_all = TRUE) %>%
+  #renaming vars just for maps in next section
+  rename("Mean num of events in a year" = "meanannual_days_belowthresh",
+         "Mean DO during event"= "meanannual_avg_DO_belowthresh")
 
 #used later
 DO_all_events <- left_join(events, DO_event_summary,
@@ -575,7 +581,7 @@ temp_event_summary <- mpa_with_histclimsd %>%
          temp_event = label_events(is_temp_high)) %>%
   
   filter(is_temp_high == TRUE) %>%
-  group_by(File, temp_event) %>% 
+  group_by(File, temp_event, period) %>% 
   mutate(duration_days = n(),
          event_begin = min(Date),
          event_mean = mean(Temp),  
@@ -594,11 +600,11 @@ temp_event_summary <- mpa_with_histclimsd %>%
   ungroup() %>%
   
   #mpa summary (annual)
-  group_by(File, Year) %>%
+  group_by(File, Year, period) %>%
   mutate(annual_days_abovethresh = n(), 
          annual_avg_temp_abovethresh = mean(Temp)) %>%
   ungroup() %>%
-  group_by(File) %>%
+  group_by(File, period) %>%
   mutate(meanannual_days_abovethresh = mean(annual_days_abovethresh),
          meanannual_avg_temp_abovethresh = mean(annual_avg_temp_abovethresh)) 
   
@@ -606,7 +612,10 @@ temp_event_summary <- mpa_with_histclimsd %>%
 temp_mpa_summary <- temp_event_summary %>% 
   select(-Temp,-duration_days, -event_begin, -event_mean, -intensity, 
          -severity, -is_temp_high, -temp_event, -julianday) %>%
-  distinct(period, File, .keep_all = TRUE)
+  distinct(period, File, .keep_all = TRUE) %>%
+  #renaming vars just for maps in next section
+  rename("Mean num of events in a year" = "meanannual_days_abovethresh",
+         "Mean temperature during event"="meanannual_avg_temp_abovethresh")
 
 #used later
 temp_all_events <- left_join(mpa, temp_event_summary,
@@ -621,35 +630,41 @@ temp_all_events <- left_join(mpa, temp_event_summary,
 CA_shp <- st_read(here("./data/rawdata/shp/CA_Counties/CA_Counties_TIGER2016.shp"))
 
 
-make_anom_map <- function(mpa_summary_df, col){
+make_anom_map <- function(mpa_summary_df, sumstat, periodt, title){
   
-  anom_points <- st_as_sf(mpa_summary_df, coords = c("degx","degy")) 
-                          
-  tm_shape(CA_shp) + 
-    tm_polygons() +
-    
+  anom_points <- st_as_sf((mpa_summary_df %>% filter(period == periodt)), 
+                          coords = c("degx","degy"))
+  
+  
+  #finding equal interval breaks based on all time periods
+  all_breaks <- classInt::classIntervals(mpa_summary_df[[sumstat]], 10, "equal")
+  
+  tm_shape(CA_shp) + #basemap
+   tm_fill(col = "#ccebc5") +
+  
   tm_shape(anom_points) +
-    tm_dots(col = num_event)
+    tm_dots(col = sumstat, size = 0.05) +
+          #,breaks = all_breaks$brks) +
 
+  tm_layout(bg.color = "#a6cee3", 
+            main.title = title,
+            main.title.position = "center",
+            main.title.size = .8,
+            legend.title.size = .9,
+            legend.text.size = .5)
+  
 }
 
-make_anom_map(temp_mpa_summary, periodt)
+make_anom_map(temp_mpa_summary, "Mean num of events in a year", "historic", 
+              "Annual # of anomalous heat events in historic period") 
 
-#non function scratch
-anom_points <- st_as_sf((temp_mpa_summary %>% filter(period == "endcen")), 
-                        coords = c("degx","degy"))
+make_anom_map(temp_mpa_summary, "Mean num of events in a year", "midcen",
+              "Annual # of anomalous heat events in mid century period") 
 
-  tm_shape(CA_shp) + 
-    tm_fill(col = "#ccebc5") +
-    
-  tm_shape(anom_points) +
-    tm_dots(col = "num_event", size = 0.05) +
-    
-    
-  tm_layout(bg.color = "#a6cee3", 
-            title = "Number of Anomalous DO Events")
-  
-    
+make_anom_map(temp_mpa_summary, "Mean num of events in a year", "endcen",
+              "Annual # of anomalous heat events in end century period")
+
+
 ```
 
 ## Severity, Intensity, Duration
