@@ -88,16 +88,14 @@ make_anom_map(temp_mpa_summary, "annual_days_abovethresh", "endcen")
 
 
   #######keep getting error bc of way im indexing sumstat in classintervals. trying to fix this.
-  make_anom_map <- function(mpa_summary_df, sumstat, periodt, title)
+  make_anom_map <- function(mpa_summary_df, sumstat, periodt, title){
     
-    anom_points <- st_as_sf((temp_mpa_summary %>% filter(period == "endcen")), 
+    anom_points <- st_as_sf((mpa_summary_df %>% filter(period == periodt)), 
                             coords = c("degx","degy"))
-    
+
     #finding equal interval breaks based on all time periods
-    all_breaks <- classInt::classIntervals(temp_mpa_summary$"Mean num of events in a year", 10, "equal")
-    
-    all_breaks_tile <- ntile(temp_mpa_summary$"Mean num of events in a year", n =10)
- 
+    all_breaks <- classInt::classIntervals(mpa_summary_df[[sumstat]], 
+                                           8, "equal")
     
     
     #map with equal breaks across periods
@@ -105,16 +103,20 @@ make_anom_map(temp_mpa_summary, "annual_days_abovethresh", "endcen")
       tm_fill(col = "#ccebc5") +
       
       tm_shape(anom_points) +
-      tm_dots(col = "Mean num of events in a year", size = 0.05, 
+      tm_dots(col = sumstat, size = 0.05, 
               breaks = all_breaks[["brks"]]) +
       
       tm_layout(bg.color = "#a6cee3", 
                 main.title.position = "center",
                 main.title.size = .8,
+                main.title = title,
                 legend.title.size = .9,
-                legend.text.size = .5)
+                legend.text.size = .5) %>%
+      
+      tmap_save()
+  }
   
-  
-  make_anom_map(temp_mpa_summary, "Mean num of events in a year", "historic", 
-                "Annual # of anomalous heat events in historic period")   
+  make_anom_map(temp_mpa_summary, sumstat = "Mean num of events in a year", 
+                periodt =  "historic", 
+                title = "Annual # of anomalous heat events in historic period")   
 
