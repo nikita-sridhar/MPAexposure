@@ -38,6 +38,9 @@ library(ggpmisc)
 library(dendextend)
 library(colourvalues)
 library(zoo)
+library(terra) #needed for tmap?
+library(tmap) 
+library(sf) 
 ```
 
 Load MPA name file and merge with model projection. Add time periods.
@@ -455,7 +458,8 @@ events <- mpa %>%
          is_DO_low = DO < 4.6,
          DO_event = label_events(is_DO_low),
          
-         is_pH_and_DO_low = ifelse(is_pH_low == TRUE & is_DO_low == TRUE, TRUE, FALSE),
+         is_pH_and_DO_low = ifelse(is_pH_low == TRUE & 
+                                     is_DO_low == TRUE, TRUE, FALSE),
          pH_and_DO_event = label_events(is_pH_and_DO_low)) 
 ```
 
@@ -500,8 +504,9 @@ pH_mpa_summary <- pH_event_summary %>%
 
 #used later
 pH_all_events <- left_join(events, pH_event_summary,
-                         by = c("File", "Date", "Year", "NAME", "pH", "period", 
-                                "degx", "degy", "julianday", "is_pH_low", "pH_event"))
+                         by = c("File", "Date", "Year", "NAME", "pH", 
+                                "period", "degx", "degy", "julianday",
+                                "is_pH_low", "pH_event"))
 ```
 
 DO:
@@ -545,8 +550,9 @@ DO_mpa_summary <- DO_event_summary %>%
 
 #used later
 DO_all_events <- left_join(events, DO_event_summary,
-                         by = c("File", "Date", "Year", "NAME", "DO", "period", 
-                                "degx", "degy", "julianday", "is_DO_low", "DO_event"))
+                         by = c("File", "Date", "Year", "NAME", "DO", 
+                                "period", "degx", "degy", "julianday",
+                                "is_DO_low", "DO_event"))
 ```
 
 ## Anomalous temp analysis
@@ -606,6 +612,44 @@ temp_mpa_summary <- temp_event_summary %>%
 temp_all_events <- left_join(mpa, temp_event_summary,
                          by = c("File", "Date", "Year", "NAME", "Temp", "period", 
                                 "degx", "degy", "julianday"))
+```
+
+## Map of anom events
+
+```{r}
+
+CA_shp <- st_read(here("./data/rawdata/shp/CA_Counties/CA_Counties_TIGER2016.shp"))
+
+
+make_anom_map <- function(mpa_summary_df, col){
+  
+  anom_points <- st_as_sf(mpa_summary_df, coords = c("degx","degy")) 
+                          
+  tm_shape(CA_shp) + 
+    tm_polygons() +
+    
+  tm_shape(anom_points) +
+    tm_dots(col = num_event)
+
+}
+
+make_anom_map(temp_mpa_summary, periodt)
+
+#non function scratch
+anom_points <- st_as_sf((temp_mpa_summary %>% filter(period == "endcen")), 
+                        coords = c("degx","degy"))
+
+  tm_shape(CA_shp) + 
+    tm_fill(col = "#ccebc5") +
+    
+  tm_shape(anom_points) +
+    tm_dots(col = "num_event", size = 0.05) +
+    
+    
+  tm_layout(bg.color = "#a6cee3", 
+            title = "Number of Anomalous DO Events")
+  
+    
 ```
 
 ## Severity, Intensity, Duration
