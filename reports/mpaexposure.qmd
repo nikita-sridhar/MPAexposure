@@ -630,40 +630,121 @@ temp_all_events <- left_join(mpa, temp_event_summary,
 CA_shp <- st_read(here("./data/rawdata/shp/CA_Counties/CA_Counties_TIGER2016.shp"))
 
 
-make_anom_map <- function(mpa_summary_df, sumstat, periodt, title){
-  
-  anom_points <- st_as_sf((mpa_summary_df %>% filter(period == periodt)), 
-                          coords = c("degx","degy"))
-  
-  
-  #finding equal interval breaks based on all time periods
-  all_breaks <- classInt::classIntervals(mpa_summary_df[[sumstat]], 10, "equal")
-  
-  tm_shape(CA_shp) + #basemap
-   tm_fill(col = "#ccebc5") +
-  
-  tm_shape(anom_points) +
-    tm_dots(col = sumstat, size = 0.05) +
-          #,breaks = all_breaks$brks) +
+ make_anom_map <- function(mpa_summary_df, sumstat, periodt, title, 
+                           filename, palette = "YlOrRd"){
+    
+    anom_points <- st_as_sf((mpa_summary_df %>% filter(period == periodt)), 
+                            coords = c("degx","degy"))
 
-  tm_layout(bg.color = "#a6cee3", 
-            main.title = title,
-            main.title.position = "center",
-            main.title.size = .8,
-            legend.title.size = .9,
-            legend.text.size = .5)
-  
-}
+    #finding equal interval breaks based on all time periods
+    all_breaks <- classInt::classIntervals(mpa_summary_df[[sumstat]], 
+                                           8, "equal")
+    
+    #map with equal breaks across periods
+   map <- tm_shape(CA_shp) + #basemap
+      tm_fill(col = "#ccebc5") +
+      
+      tm_shape(anom_points) +
+      tm_dots(col = sumstat, palette = palette, size = 0.2, 
+              breaks = all_breaks[["brks"]]) +
+      
+      tm_layout(bg.color = "#a6cee3", 
+                main.title.position = "center",
+                main.title.size = 1.3,
+                main.title = title,
+                legend.title.size = 1,
+                legend.text.size = .8) 
+    
+tmap_save(map, here(paste("./figs/anom_map/",filename)))
+    
+ }
+ 
+```
 
-make_anom_map(temp_mpa_summary, "Mean num of events in a year", "historic", 
-              "Annual # of anomalous heat events in historic period") 
+Making maps from previous function
 
-make_anom_map(temp_mpa_summary, "Mean num of events in a year", "midcen",
-              "Annual # of anomalous heat events in mid century period") 
+```{r}
+#TEMP-----------------------------------------------------
+#mean annual num events for all periods for temp 
+make_anom_map(temp_mpa_summary, sumstat = "Mean num of events in a year", 
+                periodt =  "historic", 
+                title = "Annual # of anomalous heat events in historic period",
+                filename = "temp_historic_annual_event.png")
 
-make_anom_map(temp_mpa_summary, "Mean num of events in a year", "endcen",
-              "Annual # of anomalous heat events in end century period")
+make_anom_map(temp_mpa_summary, sumstat = "Mean num of events in a year",
+              periodt = "midcen",
+              title = "Annual # of anomalous heat events in mid century period",
+              filename = "temp_midcen_annual_event.png") 
 
+make_anom_map(temp_mpa_summary, sumstat = "Mean num of events in a year",
+              periodt = "endcen",
+              title = "Annual # of anomalous heat events in end century period",
+              filename = "temp_endcen_annual_event.png")
+
+#mean temp during event for all periods
+make_anom_map(temp_mpa_summary, "Mean temperature during event", "historic", 
+              "Mean heat event temperature in historic period",
+              "temp_val_historic_event.png")
+
+make_anom_map(temp_mpa_summary, "Mean temperature during event","midcen",
+              "Mean heat event temperature in mid century period",
+              "temp_val_midcen_event.png") 
+
+make_anom_map(temp_mpa_summary, "Mean temperature during event",
+              "endcen","Mean heat event temperature in end century period",
+              "temp_val_endcen_event.png")
+
+#pH---------------------------------------------------------
+make_anom_map(pH_mpa_summary, "Mean num of events in a year", "historic",
+              "Annual # of anomalous pH events in historic period",
+              "pH_historic_annual_event.png")
+
+make_anom_map(pH_mpa_summary, "Mean num of events in a year","midcen",
+              "Annual # of anomalous pH events in mid century period",
+              "pH_midcen_annual_event.png") 
+
+make_anom_map(pH_mpa_summary, "Mean num of events in a year","endcen",
+              "Annual # of anomalous pH events in end century period",
+              "pH_endcen_annual_event.png")
+
+#mean pH during event for all periods 
+make_anom_map(pH_mpa_summary, "Mean pH during event", "historic", 
+              "Mean event pH in historic period","pH_val_historic_event.png",
+              palette = "-YlOrRd")
+
+make_anom_map(pH_mpa_summary, "Mean pH during event","midcen",
+              "Mean event pH in mid century period","pH_val_midcen_event.png",
+              palette = "-YlOrRd") 
+
+make_anom_map(pH_mpa_summary, "Mean pH during event","endcen",
+              "Mean event pH in end century period","pH_val_endcen_event.png",
+              palette = "-YlOrRd")
+
+#DO---------------------------------------------------------
+make_anom_map(DO_mpa_summary, "Mean num of events in a year", "historic",
+              "Annual # of anomalous DO events in historic period",
+              "DO_historic_annual_event.png")
+
+make_anom_map(DO_mpa_summary, "Mean num of events in a year","midcen",
+              "Annual # of anomalous DO events in mid century period",
+              "DO_midcen_annual_event.png") 
+
+make_anom_map(DO_mpa_summary, "Mean num of events in a year","endcen",
+              "Annual # of anomalous DO events in end century period",
+              "DO_endcen_annual_event.png")
+
+#mean DO during event for all periods 
+make_anom_map(DO_mpa_summary, "Mean DO during event", "historic", 
+              "Mean event DO in historic period","DO_val_historic_event.png",
+              palette = "-YlOrRd")
+
+make_anom_map(DO_mpa_summary, "Mean DO during event","midcen",
+              "Mean event DO in mid century period","DO_val_midcen_event.png",
+              palette = "-YlOrRd") 
+
+make_anom_map(DO_mpa_summary, "Mean DO during event","endcen",
+              "Mean event DO in end century period","DO_val_endcen_event.png",
+              palette = "-YlOrRd")
 
 ```
 
