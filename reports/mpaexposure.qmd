@@ -43,6 +43,7 @@ library(zoo)
 library(terra) #needed for tmap?
 library(tmap) 
 library(sf) 
+library(stringr)
 library(heatmaply)
 ```
 
@@ -280,7 +281,7 @@ sum <- mpa %>%
 
 ## PCA
 
-PCA of all summary stats (mean, lower 10th percentile, upper 10th percentile, seasonal SD, event SD) clustered by regions.
+PCA of all summary stats (mean, lower 10th percentile, upper 10th percentile, seasonal SD, event SD) clustered by regions within specified time period.
 
 ```{r}
 #| label: pca_function
@@ -802,12 +803,14 @@ make_anom_map(DO_mpa_summary, "Mean DO during event","endcen",
 
 ## Severity, Intensity, Duration
 
-Create figures displaying occurrences of events throughout the year, to determine monthly occurrences. Julian days on x-axis, years on y-axis, and events are shaded by intensity (threshold - event mean).
+Create figures displaying occurrences of events throughout the year, to determine seasonal influence. Julian days on x-axis, years on y-axis, and events are shaded by intensity (threshold minus event mean).
 
 ```{r}
-#| label: temp_sev_int_dur_function
+#| label: sev_int_dur_function
 
-#temp
+#NOTE: when made into one function sev_int_dur for all variables (df as a parameter), it takes FOREVER to load while it is very quick when function is specific to variable (temp_sev_int_dur).
+
+#temp:
 temp_sev_int_dur <- function(periodt, site){
   
   plot <- temp_all_events %>%
@@ -823,6 +826,42 @@ ggsave(here(paste("./figs/sevintdur/","temp_events", periodt, site,".png",sep="_
 
 }
 
+#pH:
+pH_sev_int_dur <- function(periodt, site){
+  
+  plot <- pH_all_events %>%
+    filter(period == periodt, NAME == site) %>%
+    ggplot(aes(julianday, Year, fill = intensity)) +
+    geom_tile() +
+    scale_fill_distiller(palette = "YlOrRd", direction = 1, 
+                         na.value = "skyblue") +
+    theme_classic() +
+    ggtitle(paste(periodt, "pH events at", site)) 
+    
+ggsave(here(paste("./figs/sevintdur/","pH_events", periodt, site,".png",sep="_")), plot)
+
+}
+
+#DO
+DO_sev_int_dur <- function(periodt, site){
+  
+  plot <- DO_all_events %>%
+    filter(period == periodt, NAME == site) %>%
+    ggplot(aes(julianday, Year, fill = intensity)) +
+    geom_tile() +
+    scale_fill_distiller(palette = "YlOrRd", direction = 1, 
+                         na.value = "skyblue") +
+    theme_classic() +
+    ggtitle(paste(periodt, "DO events at", site)) 
+    
+ggsave(here(paste("./figs/sevintdur/","DO_events", periodt, site,".png",sep="_")), plot)
+
+}
+```
+
+```{r}
+#| label: plot_temp_sev_int_dur
+  
 #central CA
 temp_sev_int_dur("historic", "Ano Nuevo SMR")
 temp_sev_int_dur("midcen", "Ano Nuevo SMR")
@@ -842,27 +881,11 @@ temp_sev_int_dur("endcen", "South La Jolla SMR")
 temp_sev_int_dur("historic", "Anacapa Island FMR")
 temp_sev_int_dur("midcen", "Anacapa Island FMR")
 temp_sev_int_dur("endcen", "Anacapa Island FMR")
+  
 ```
 
 ```{r}
-#pH
-pH_sev_int_dur <- function(periodt, site){
-  
-  plot <- pH_all_events %>%
-    filter(period == periodt, NAME == site) %>%
-    ggplot(aes(julianday, Year, fill = intensity)) +
-    geom_tile() +
-    scale_fill_distiller(palette = "YlOrRd", direction = 1, 
-                         na.value = "skyblue") +
-    theme_classic() +
-    ggtitle(paste(periodt, "pH events at", site)) 
-    
-ggsave(here(paste("./figs/sevintdur/","pH_events", periodt, site,".png",sep="_")), plot)
-
-}
-
-
-
+#| label: plot_pH_sev_int_dur
 
 #central CA
 pH_sev_int_dur("historic", "Ano Nuevo SMR")
@@ -886,22 +909,7 @@ pH_sev_int_dur("endcen", "Anacapa Island FMR")
 ```
 
 ```{r}
-#DO
-DO_sev_int_dur <- function(periodt, site){
-  
-  plot <- DO_all_events %>%
-    filter(period == periodt, NAME == site) %>%
-    ggplot(aes(julianday, Year, fill = intensity)) +
-    geom_tile() +
-    scale_fill_distiller(palette = "YlOrRd", direction = 1, 
-                         na.value = "skyblue") +
-    theme_classic() +
-    ggtitle(paste(periodt, "DO events at", site)) 
-    
-ggsave(here(paste("./figs/sevintdur/","DO_events", periodt, site,".png",sep="_")), plot)
-
-}
-
+#| label: plot_DO_sev_int_dur_events
 
 #central CA
 DO_sev_int_dur("historic", "Ano Nuevo SMR")
@@ -922,13 +930,49 @@ DO_sev_int_dur("endcen", "South La Jolla SMR")
 DO_sev_int_dur("historic", "Anacapa Island FMR")
 DO_sev_int_dur("midcen", "Anacapa Island FMR")
 DO_sev_int_dur("endcen", "Anacapa Island FMR")
+
 ```
 
 ## Time series to put in context
 
+Time series for each time period and variable to confirm trends seen previously in PCA, heatmaps, and anom analysis with respect to the seasonal cycle. Time series for a given period show all years in different colors, julian day on the x-axis, and the value of the variable on the y-axis. The blue line represents the climatological mean for the given time period, and the grey ribbon denotes 2SD above/below the period's climatological mean.
+
 ```{r}
+#| label: time_series_function
+
+make_time_series <- function(periodt, site, variable){
+
+mpa %>% 
+  filter(period == periodt, 
+         NAME == site) %>%
+  mutate(sliding_sd = roll_sd(!!sym(variable), 30, fill = NA)) %>% 
+  group_by(julianday) %>%
+  mutate(clim_mean = mean(!!sym(variable), na.rm = TRUE),
+         clim_sd = mean(sliding_sd, na.rm = TRUE),
+         clim_upr = clim_mean + 2 * clim_sd,
+         clim_lwr = clim_mean - 2 * clim_sd) %>% 
+  ungroup() %>%
+  
+  ggplot(aes(julianday)) +
+  geom_ribbon(aes(ymin = clim_lwr, ymax = clim_upr),
+              fill = "black", alpha = 0.75) +
+  geom_line(aes(y = !!sym(variable), color = Year, group = Year),
+            alpha = 0.5) +
+  geom_line(aes(y = clim_mean), size = 1, color = "blue") +
+  scale_color_viridis_c() +
+  theme_classic() +
+    ggtitle(paste(periodt, variable, "at", site))
+}
+
+
+make_time_series("historic","Ano Nuevo SMR", "pH") 
+
 
 #this fig shows time series in julian days w/ envelope wrt given period's SD (NOT historic, as it should be for calculating anomalous event!)
+
+
+
+
 
 make_temp_time_series <- function(periodt, site, title){
 
@@ -954,9 +998,9 @@ mpa %>%
     ggtitle(title)
 }
 
-make_pH_time_series <- function(df, periodt, site, title){
+make_pH_time_series <- function(periodt, site, title){
 
-df %>% 
+mpa %>% 
   filter(period == periodt, 
          NAME == site) %>%
   mutate(sliding_sd = roll_sd(pH, 30, fill = NA)) %>% 
@@ -978,9 +1022,9 @@ df %>%
     ggtitle(title)
 }
 
-make_DO_time_series <- function(df, periodt, site, title){
+make_DO_time_series <- function(periodt, site, title){
 
-df %>% 
+mpa %>% 
   filter(period == periodt, 
          NAME == site) %>%
   mutate(sliding_sd = roll_sd(DO, 30, fill = NA)) %>% 
@@ -1003,26 +1047,78 @@ df %>%
   
 }
 
+```
 
+```{r}
+#| label: plot_temp_time_series
 
+#central
 make_temp_time_series("historic","Ano Nuevo SMR", title = "Historic Temp at Ano Nuevo") 
 make_temp_time_series("midcen","Ano Nuevo SMR", title = "Midcen Temp at Ano Nuevo") 
 make_temp_time_series("endcen","Ano Nuevo SMR", title = "Endcen Temp at Ano Nuevo") 
 
-make_pH_time_series(mpa, "historic","Ano Nuevo SMR", title = "Historic pH at Ano Nuevo") 
+#northern 
+make_temp_time_series("historic","Point Arena SMR", title = "Historic Temp at Point Arena SMR")
+make_temp_time_series("midcen","Point Arena SMR", title = "Midcen Temp at Point Arena SMR") 
+make_temp_time_series("endcen","Point Arena SMR", title = "Endcen Temp at Point Arena SMR")
+
+#channel
+make_temp_time_series("historic","Anacapa Island FMR", title = "Historic Temp at Anacapa Island FMR")
+make_temp_time_series("midcen","Anacapa Island FMR", title = "Midcen Temp at Anacapa Island FMR") 
+make_temp_time_series("endcen","Anacapa Island FMR", title = "Endcen Temp at Anacapa Island FMR")
+
+#southern
+make_temp_time_series("historic","South La Jolla SMR", title = "Historic Temp at South La Jolla SMR")
+make_temp_time_series("midcen","South La Jolla SMR", title = "Midcen Temp at South La Jolla SMR") 
+make_temp_time_series("endcen","South La Jolla SMR", title = "Endcen Temp at South La Jolla SMR")
+```
+
+```{r}
+#| label: plot_pH_time_series
+
+#central
+make_pH_time_series("historic","Ano Nuevo SMR", title = "Historic pH at Ano Nuevo") 
 make_pH_time_series("midcen","Ano Nuevo SMR", title = "Midcen pH at Ano Nuevo") 
-make_pH_time_series("endcen","Ano Nuevo SMR", title = "Endcen pH at Ano Nuevo") 
+make_pH_time_series("endcen","Ano Nuevo SMR", title = "Endcen pH at Ano Nuevo")
 
-make_DO_time_series(mpa, "historic","Ano Nuevo SMR", title = "Historic DO at Ano Nuevo") 
-make_DO_time_series("midcen","Ano Nuevo SMR", title = "Midcen DO at Ano Nuevo") 
-make_DO_time_series("endcen","Ano Nuevo SMR", title = "Endcen DO at Ano Nuevo")
+#northern
+make_pH_time_series("historic","Point Arena SMR", title = "Historic pH at Point Arena SMR") 
+make_pH_time_series("midcen","Point Arena SMR", title = "Midcen pH at Point Arena SMR") 
+make_pH_time_series("endcen","Point Arena SMR", title = "Endcen pH at Point Arena SMR")
 
+#channel
+make_pH_time_series("historic","Anacapa Island FMR", title = "Historic pH at Anacapa Island FMR") 
+make_pH_time_series("midcen","Anacapa Island FMR", title = "Midcen pH at Anacapa Island FMR") 
+make_pH_time_series("endcen","Anacapa Island FMR", title = "Endcen pH at Anacapa Island FMR")
 
+#southern
+make_pH_time_series("historic","South La Jolla SMR", title = "Historic pH at South La Jolla SMR") 
+make_pH_time_series("midcen","South La Jolla SMR", title = "Midcen pH at South La Jolla SMR") 
+make_pH_time_series("endcen","South La Jolla SMR", title = "Endcen pH at South La Jolla SMR")
 
 ```
 
-Making figs (severity/intensity/duration and time series for individual MPAs
-
 ```{r}
+#| label: plot_DO_time_series
+
+#central
+make_DO_time_series("historic","Ano Nuevo SMR", title = "Historic DO at Ano Nuevo") 
+make_DO_time_series("midcen","Ano Nuevo SMR", title = "Midcen DO at Ano Nuevo") 
+make_DO_time_series("endcen","Ano Nuevo SMR", title = "Endcen DO at Ano Nuevo")
+
+#northern
+make_DO_time_series("historic","Point Arena SMR", title = "Historic DO at Point Arena SMR") 
+make_DO_time_series("midcen","Point Arena SMR", title = "Midcen DO at Point Arena SMR") 
+make_DO_time_series("endcen","Point Arena SMR", title = "Endcen DO at Point Arena SMR")
+
+#channel
+make_DO_time_series("historic","Anacapa Island FMR", title = "Historic DO at Anacapa Island FMR") 
+make_DO_time_series("midcen","Anacapa Island FMR", title = "Midcen DO at Anacapa Island FMR") 
+make_DO_time_series("endcen","Anacapa Island FMR", title = "Endcen DO at Anacapa Island FMR")
+
+#southern
+make_DO_time_series("historic","South La Jolla SMR", title = "Historic DO at South La Jolla SMR") 
+make_DO_time_series("midcen","South La Jolla SMR", title = "Midcen DO at South La Jolla SMR") 
+make_DO_time_series("endcen","South La Jolla SMR", title = "Endcen DO at South La Jolla SMR")
 
 ```
