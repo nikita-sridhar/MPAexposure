@@ -4,7 +4,8 @@ format:
   html:
     code-fold: true
 editor: visual
-output-dir: docs
+project:
+  output-dir: docs
 ---
 
 ```{r}
