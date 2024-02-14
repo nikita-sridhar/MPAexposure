@@ -4,6 +4,7 @@ format:
   html:
     code-fold: true
 editor: visual
+output-dir: docs
 ---
 
 ```{r}
@@ -672,7 +673,7 @@ temp_all_events <- left_join(mpa, temp_event_summary,
                                 "degx", "degy", "julianday"))
 ```
 
-## Map of anomalous events 
+## Map of anomalous events
 
 Maps showing anomalous event summaries in CA, including average number days crossed threshold in a year, and average value when threshold is crossed. Same color scheme fixed across time periods, using equal breaks classification of values across all periods.
 
