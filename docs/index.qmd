@@ -12,8 +12,8 @@ By Nikita Sridhar
 
 ## Code and Figures
 
-All code and figures for IPSL model projections can be found here
+All code and figures for IPSL model projections can be found [here](mpaexposure.html)
 
 ## Interpretation of Results
 
-Interpretation of results and storyline can be found here\
+Interpretation of results and storyline can be found [here](interpretation.html)\
