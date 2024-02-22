@@ -393,7 +393,7 @@ make_heatmap("T_eventSD", col, title = "Temp event SD across periods")
 make_heatmap("T_seasonalSD", col, title = "Temp seasonal SD across periods")
 ```
 
-#### **pH** 
+#### **pH**
 
 ```{r}
 #| column: screen-inset-shaded
@@ -407,7 +407,7 @@ make_heatmap("pH_eventSD",col, title = "pH event SD across periods")
 make_heatmap("pH_seasonalSD",col, title = "pH seasonal SD across periods")
 ```
 
-#### **DO** 
+#### **DO**
 
 ```{r}
 #| column: screen-inset-shaded
@@ -444,7 +444,7 @@ make_regression <- function(sumstat, period1, period2,title){
 }
 ```
 
-#### **Temp** 
+#### **Temp**
 
 ```{r}
 #| label: plot_regression
@@ -476,7 +476,7 @@ make_regression <- function(sumstat, period1, period2,title){
     make_regression("pH_eventSD", "historic", "endcen", "Historic vs. end century pH event SD")
 ```
 
-#### **DO** 
+#### **DO**
 
 ```{r}
 #| column: screen-inset-shaded
@@ -787,7 +787,7 @@ make_anom_map(temp_mpa_summary, "Mean temperature during event",
               "temp_val_endcen_event.png")
 ```
 
-#### **pH** 
+#### **pH**
 
 ```{r}
 #| column: screen-inset-shaded
@@ -821,7 +821,7 @@ make_anom_map(pH_mpa_summary, "Mean pH during event","endcen",
 
 ```
 
-#### **DO** 
+#### **DO**
 
 ```{r}
 #| column: screen-inset-shaded
@@ -909,9 +909,9 @@ DO_sev_int_dur <- function(periodt, site){
 }
 ```
 
-#### Temp 
+#### Temp
 
-##### Central CA: 
+##### Central CA:
 
 ```{r}
 #| label: plot_temp_sev_int_dur
@@ -937,7 +937,7 @@ temp_sev_int_dur("midcen", "Point Arena SMR")
 temp_sev_int_dur("endcen", "Point Arena SMR")
 ```
 
-##### Southern CA : 
+##### Southern CA :
 
 ```{r}
 #| column: screen-inset-shaded
@@ -950,7 +950,7 @@ temp_sev_int_dur("endcen", "South La Jolla SMR")
 
 ```
 
-##### Channel Islands: 
+##### Channel Islands:
 
 ```{r}
 #| column: screen-inset-shaded
@@ -964,7 +964,7 @@ temp_sev_int_dur("endcen", "Anacapa Island FMR")
 
 #### pH
 
-##### Central CA: 
+##### Central CA:
 
 ```{r}
 #| column: screen-inset-shaded
@@ -988,7 +988,7 @@ pH_sev_int_dur("midcen", "Point Arena SMR")
 pH_sev_int_dur("endcen", "Point Arena SMR")
 ```
 
-##### Southern CA : 
+##### Southern CA :
 
 ```{r}
 #| column: screen-inset-shaded
@@ -1000,7 +1000,7 @@ pH_sev_int_dur("midcen", "South La Jolla SMR")
 pH_sev_int_dur("endcen", "South La Jolla SMR")
 ```
 
-##### Channel Islands: 
+##### Channel Islands:
 
 ```{r}
 #| column: screen-inset-shaded
@@ -1038,7 +1038,7 @@ DO_sev_int_dur("midcen", "Point Arena SMR")
 DO_sev_int_dur("endcen", "Point Arena SMR")
 ```
 
-##### Southern CA : 
+##### Southern CA :
 
 ```{r}
 #| column: screen-inset-shaded
@@ -1050,7 +1050,7 @@ DO_sev_int_dur("midcen", "South La Jolla SMR")
 DO_sev_int_dur("endcen", "South La Jolla SMR")
 ```
 
-##### Channel Islands: 
+##### Channel Islands:
 
 ```{r}
 #| column: screen-inset-shaded
@@ -1302,7 +1302,7 @@ make_DO_time_series("midcen","Point Arena SMR", title = "Midcen DO at Point Aren
 make_DO_time_series("endcen","Point Arena SMR", title = "Endcen DO at Point Arena SMR")
 ```
 
-##### Southern CA : 
+##### Southern CA :
 
 ```{r}
 #| column: screen-inset-shaded
@@ -1314,7 +1314,7 @@ make_DO_time_series("midcen","South La Jolla SMR", title = "Midcen DO at South L
 make_DO_time_series("endcen","South La Jolla SMR", title = "Endcen DO at South La Jolla SMR")
 ```
 
-##### Channel Islands: 
+##### Channel Islands:
 
 ```{r}
 #| column: screen-inset-shaded
