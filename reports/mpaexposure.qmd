@@ -4,6 +4,8 @@ format:
   html:
     code-fold: true
     toc: true
+project:
+  output-dir: docs
 editor: visual
 ---
 
@@ -12,8 +14,6 @@ knitr::opts_chunk$set(warning = FALSE, message = FALSE)
 ```
 
 ------------------------------------------------------------------------
-
-# CA MPA Exposure to Future Climate
 
 *Characterization of exposure of California MPAs to future pH, DO, and temperature using IPSL model predictions.*
 
