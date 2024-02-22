@@ -5,8 +5,6 @@ format:
     code-fold: true
     toc: true
 editor: visual
-project:
-  output-dir: docs
 ---
 
 ```{r}
