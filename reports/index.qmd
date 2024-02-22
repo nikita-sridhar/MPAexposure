@@ -1,0 +1,17 @@
+---
+title: Exposure of CA MPAs to Future Climate
+format: html
+editor: visual
+---
+
+By Nikita Sridhar
+
+------------------------------------------------------------------------
+
+## Code and Figures
+
+All code and figures for IPSL model projections can be found here
+
+## Interpretation of Results
+
+Interpretation of results and storyline can be found here\
