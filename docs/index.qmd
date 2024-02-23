@@ -2,8 +2,6 @@
 title: Exposure of CA MPAs to Future Climate
 format: html
 editor: visual
-project:
-  output-dir: docs
 ---
 
 By Nikita Sridhar
