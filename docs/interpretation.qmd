@@ -1,0 +1,31 @@
+---
+title: Interpretation of Results: Exposure of CA MPAs to Future Climate
+format: html
+  html:
+    toc: true
+editor: visual
+---
+
+## Importance of understanding MPA exposure to future change
+
+MPAs are an important tool for protection of habitats, but little is known about how they will protect habitats in a changing climate. Many ecological principles and societal concerns informed the establishment of California’s MPA network [(Gleason et al., 2013)](https://www.zotero.org/google-docs/?gmaSpT). For example, sites were chosen to represent important nearshore habitats, such as kelp forests, and ensure connectivity between populations [(Gleason et al., 2010)](https://www.zotero.org/google-docs/?fHGzDW). However, at the time of establishment little research was available on the geographic variability in exposure of MPAs to climate stressors. Theory indicates MPAs may aid in climate resilience as they support larger-bodied individuals that may better withstand climate stress and robust populations due to high gene flow from connectivity [(Hamilton et al., 2023)](https://www.zotero.org/google-docs/?v5VdbD). However, without knowing what climate conditions are expected in the future, it is difficult to predict how well MPAs will protect habitats. 
+
+The spatio-temporal landscape of the CA coast is highly variable due to complex interplay of physical and biogeochemical processes like upwelling, creating a mosaic of temperature, pH, and dissolved oxygen conditions [(Kroeker et al., 2023)](https://www.zotero.org/google-docs/?34CKMQ). As warming, ocean acidification, and deoxygenation accelerate, MPAs will be exposed to unique stressor magnitudes and combinations. There is no “one size fits all strategy” to predicting effects of climate change in MPAs as the CA network spans such highly multivariate environmental conditions - one MPA may experience very different conditions to another. Thus, it is important to understand whether **future environmental change will overlay onto current patterns of variability in CA, or whether new sites of vulnerability may emerge in the future** to better contextualize the efficacy of MPAs. 
+
+Since organismal vulnerability to climate change can differ (i.e. mean conditions may be stressful for some, whereas frequent anomalous events may be stressful to others) **we characterize exposure of MPAs to future climate change representing various measures of vulnerability**. Understanding future patterns of warming and acidification will inform our expectations for geographic variation in MPA efficacy and resilience to environmental change.
+
+Here, we aim to:
+
+1.  use model projections to determine whether future environmental change will overlay onto current patterns of variability in CA
+
+2.  characterize exposure of future stressful warming, acidification, and deoxygenation conditions via various metrics of "exposure"
+
+## Characterizing model performance
+
+## Characterizing exposure of future projections:
+
+#### **Will future environmental change overlay onto current patterns of variability?**
+
+#### How will the mean and variability of multivariate conditions in future time periods vary from historical time periods?
+
+#### How will the number and frequency of anomalous events change in the future?

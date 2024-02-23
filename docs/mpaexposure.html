@@ -79,9 +79,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <h2 id="toc-title">Table of contents</h2>
    
   <ul>
-  <li><a href="#ca-mpa-exposure-to-future-climate" id="toc-ca-mpa-exposure-to-future-climate" class="nav-link active" data-scroll-target="#ca-mpa-exposure-to-future-climate">CA MPA Exposure to Future Climate</a>
-  <ul class="collapse">
-  <li><a href="#setup" id="toc-setup" class="nav-link" data-scroll-target="#setup">Setup</a></li>
+  <li><a href="#setup" id="toc-setup" class="nav-link active" data-scroll-target="#setup">Setup</a></li>
   <li><a href="#calculate-climatology" id="toc-calculate-climatology" class="nav-link" data-scroll-target="#calculate-climatology">Calculate climatology</a></li>
   <li><a href="#calculate-event-based-variation" id="toc-calculate-event-based-variation" class="nav-link" data-scroll-target="#calculate-event-based-variation">Calculate event-based variation</a></li>
   <li><a href="#create-summary-statistics" id="toc-create-summary-statistics" class="nav-link" data-scroll-target="#create-summary-statistics">Create summary statistics</a></li>
@@ -92,7 +90,6 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#map-of-anomalous-events" id="toc-map-of-anomalous-events" class="nav-link" data-scroll-target="#map-of-anomalous-events">Map of anomalous events</a></li>
   <li><a href="#severity-intensity-duration" id="toc-severity-intensity-duration" class="nav-link" data-scroll-target="#severity-intensity-duration">Severity, Intensity, Duration</a></li>
   <li><a href="#time-series-to-put-in-context" id="toc-time-series-to-put-in-context" class="nav-link" data-scroll-target="#time-series-to-put-in-context">Time series to put in context</a></li>
-  </ul></li>
   </ul>
 </nav>
 </div>
@@ -122,8 +119,6 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </details>
 </div>
 <hr>
-<section id="ca-mpa-exposure-to-future-climate" class="level1 page-columns page-full">
-<h1>CA MPA Exposure to Future Climate</h1>
 <p><em>Characterization of exposure of California MPAs to future pH, DO, and temperature using IPSL model predictions.</em></p>
 <section id="setup" class="level2">
 <h2 class="anchored" data-anchor-id="setup">Setup</h2>
@@ -131,75 +126,49 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="cell">
 <details>
 <summary>Code</summary>
-<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(lubridate)</span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(data.table)</span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(factoextra)</span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(broom)</span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(cowplot)</span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(respR)</span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(here)</span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(lattice)</span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(RcppRoll)</span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(RColorBrewer)</span>
-<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(gplots)</span>
-<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggpmisc)</span>
-<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dendextend)</span>
-<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(colourvalues)</span>
-<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(zoo)</span>
-<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(terra) <span class="co">#needed for tmap?</span></span>
-<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tmap) </span>
-<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(sf) </span>
-<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(stringr)</span>
-<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(heatmaply)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">#Read mpa data, convert DO units, add a column for time period, and one for difference between mid/end cen and historic.</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>mpa <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="fu">here</span>(<span class="st">"data/processeddata/model/IPSLmpa.csv"</span>)) <span class="sc">%&gt;%</span> </span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">DO_mmolL =</span> DO_surf<span class="sc">/</span><span class="dv">1000</span>,</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>         <span class="at">DO_mgL =</span> <span class="fu">convert_DO</span>(DO_mmolL, <span class="at">from =</span> <span class="st">"mmol/L"</span>, <span class="at">to =</span> <span class="st">"mg/L"</span>)) <span class="sc">%&gt;%</span> </span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(Year <span class="sc">&lt;=</span> <span class="dv">2020</span><span class="sc">|</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>         Year <span class="sc">&gt;=</span> <span class="dv">2040</span> <span class="sc">&amp;</span> Year <span class="sc">&lt;=</span> <span class="dv">2060</span><span class="sc">|</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>         Year <span class="sc">&gt;=</span> <span class="dv">2080</span> <span class="sc">&amp;</span> Year <span class="sc">&lt;=</span> <span class="dv">2100</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">period =</span> <span class="fu">case_when</span>((Year <span class="sc">&lt;=</span> <span class="dv">2020</span>) <span class="sc">~</span> <span class="st">"historic"</span>, </span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>                           (Year <span class="sc">%in%</span> <span class="fu">c</span>(<span class="dv">2040</span><span class="sc">:</span><span class="dv">2060</span>)) <span class="sc">~</span> <span class="st">"midcen"</span>,</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>                           (Year <span class="sc">%in%</span> <span class="fu">c</span>(<span class="dv">2080</span><span class="sc">:</span><span class="dv">2100</span>)) <span class="sc">~</span> <span class="st">"endcen"</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(<span class="sc">-</span>T_bot, <span class="sc">-</span>DO_bot, <span class="sc">-</span>pH_bot,<span class="sc">-</span>DO_surf,<span class="sc">-</span>DO_mmolL) <span class="sc">%&gt;%</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rename</span>(<span class="at">Temp =</span> T_surf,</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>         <span class="at">DO =</span> DO_mgL,</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>         <span class="at">pH =</span> pH_surf) <span class="sc">%&gt;%</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">Date =</span> <span class="fu">make_date</span>(Year, Month, Day)) <span class="sc">%&gt;%</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">julianday =</span> <span class="fu">yday</span>(Date))</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>mpa<span class="sc">$</span>File <span class="ot">&lt;-</span> <span class="fu">substr</span>(mpa<span class="sc">$</span>File, <span class="dv">1</span>, <span class="fu">nchar</span>(mpa<span class="sc">$</span>File)<span class="sc">-</span><span class="dv">4</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 </div>
 <div class="cell">
 <details>
 <summary>Code</summary>
-<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">#Read mpa data, convert DO units, add a column for time period, and one for difference between mid/end cen and historic.</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>mpa <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="fu">here</span>(<span class="st">"data/processeddata/model/IPSLmpa.csv"</span>)) <span class="sc">%&gt;%</span> </span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">DO_mmolL =</span> DO_surf<span class="sc">/</span><span class="dv">1000</span>,</span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>         <span class="at">DO_mgL =</span> <span class="fu">convert_DO</span>(DO_mmolL, <span class="at">from =</span> <span class="st">"mmol/L"</span>, <span class="at">to =</span> <span class="st">"mg/L"</span>)) <span class="sc">%&gt;%</span> </span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(Year <span class="sc">&lt;=</span> <span class="dv">2020</span><span class="sc">|</span></span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>         Year <span class="sc">&gt;=</span> <span class="dv">2040</span> <span class="sc">&amp;</span> Year <span class="sc">&lt;=</span> <span class="dv">2060</span><span class="sc">|</span></span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>         Year <span class="sc">&gt;=</span> <span class="dv">2080</span> <span class="sc">&amp;</span> Year <span class="sc">&lt;=</span> <span class="dv">2100</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">period =</span> <span class="fu">case_when</span>((Year <span class="sc">&lt;=</span> <span class="dv">2020</span>) <span class="sc">~</span> <span class="st">"historic"</span>, </span>
-<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>                           (Year <span class="sc">%in%</span> <span class="fu">c</span>(<span class="dv">2040</span><span class="sc">:</span><span class="dv">2060</span>)) <span class="sc">~</span> <span class="st">"midcen"</span>,</span>
-<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>                           (Year <span class="sc">%in%</span> <span class="fu">c</span>(<span class="dv">2080</span><span class="sc">:</span><span class="dv">2100</span>)) <span class="sc">~</span> <span class="st">"endcen"</span>)) <span class="sc">%&gt;%</span></span>
-<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(<span class="sc">-</span>T_bot, <span class="sc">-</span>DO_bot, <span class="sc">-</span>pH_bot,<span class="sc">-</span>DO_surf,<span class="sc">-</span>DO_mmolL) <span class="sc">%&gt;%</span></span>
-<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rename</span>(<span class="at">Temp =</span> T_surf,</span>
-<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>         <span class="at">DO =</span> DO_mgL,</span>
-<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>         <span class="at">pH =</span> pH_surf) <span class="sc">%&gt;%</span></span>
-<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">Date =</span> <span class="fu">make_date</span>(Year, Month, Day)) <span class="sc">%&gt;%</span></span>
-<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">julianday =</span> <span class="fu">yday</span>(Date))</span>
-<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>mpa<span class="sc">$</span>File <span class="ot">&lt;-</span> <span class="fu">substr</span>(mpa<span class="sc">$</span>File, <span class="dv">1</span>, <span class="fu">nchar</span>(mpa<span class="sc">$</span>File)<span class="sc">-</span><span class="dv">4</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</details>
-</div>
-<div class="cell">
-<details>
-<summary>Code</summary>
-<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">#add regions here!</span></span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>mpa_centroids<span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="fu">here</span>(<span class="st">"data/rawdata/MPA_polygons.csv"</span>)) <span class="sc">%&gt;%</span></span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(<span class="sc">-</span>Area_sq_mi, <span class="sc">-</span>Type)</span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>mpa_centroids<span class="sc">$</span>File <span class="ot">&lt;-</span> <span class="fu">sub</span>(<span class="st">"^"</span>, <span class="st">"tphdo_mpa_"</span>, mpa_centroids<span class="sc">$</span>OBJECTID )</span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>mpa_centroids <span class="ot">&lt;-</span> mpa_centroids <span class="sc">%&gt;%</span></span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">region =</span> <span class="fu">ifelse</span>(degy <span class="sc">&gt;=</span> <span class="fl">37.29</span>, <span class="st">"norca"</span>, </span>
-<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>                         <span class="fu">ifelse</span>(degy <span class="sc">&gt;</span> <span class="fl">34.8</span>, <span class="st">"centralca"</span>, </span>
-<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>                                <span class="fu">ifelse</span>(<span class="st">"degy"</span> <span class="sc">&lt;</span> <span class="fl">34.274</span> <span class="sc">&amp;</span> <span class="st">"degx"</span> <span class="sc">&lt;</span> <span class="sc">-</span><span class="fl">119.220</span>, <span class="st">"channelisl"</span> , </span>
-<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>                                       <span class="st">"socal"</span>))))</span>
-<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>channel <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"Anacapa Island FMCA"</span>, <span class="st">"Anacapa Island FMR"</span>, <span class="st">"Anacapa Island SMCA"</span>, <span class="st">"Anacapa Island SMR"</span>, <span class="st">"Anacapa Island Special Closure"</span>, </span>
-<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>             <span class="st">"Arrow Point to Lion Head Point SMCA"</span>, <span class="st">"Begg Rock SMR"</span>, <span class="st">"Blue Cavern Offshore SMCA"</span>, <span class="st">"Blue Cavern Onshore SMCA (No-Take)"</span>, </span>
-<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>             <span class="st">"Carrington Point SMR"</span>, <span class="st">"Casino Point SMCA (No-Take)"</span>, <span class="st">"Cat Harbor SMCA"</span>, <span class="st">"Farnsworth Offshore SMCA"</span>, <span class="st">"Farnsworth Onshore SMCA"</span>, </span>
-<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>             <span class="st">"Footprint FMR"</span>, <span class="st">"Footprint SMR"</span>, <span class="st">"Gull Island FMR"</span>, <span class="st">"Gull Island SMR"</span>, <span class="st">"Harris Point FMR"</span>, <span class="st">"Harris Point SMR"</span>, <span class="st">"Judith Rock SMR"</span>, </span>
-<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>             <span class="st">"Long Point SMR"</span>, <span class="st">"Lover’s Cove SMCA"</span>, <span class="st">"Painted Cave SMCA"</span>, <span class="st">"Richardson Rock FMR"</span>, <span class="st">"Richardson Rock SMR"</span>, <span class="st">"San Miguel Island Special Closure"</span>, </span>
-<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>             <span class="st">"Santa Barbara Island FMR"</span>, <span class="st">"Santa Barbara Island SMR"</span>, <span class="st">"Scorpion FMR"</span>, <span class="st">"Scorpion SMR"</span>, <span class="st">"Skunk Point SMR"</span>, <span class="st">"South Point FMR"</span>, <span class="st">"South Point SMR"</span>)</span>
-<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>mpa_centroids<span class="sc">$</span>region[mpa_centroids<span class="sc">$</span>NAME <span class="sc">%in%</span> channel]  <span class="ot">&lt;-</span> <span class="st">"channel"</span> </span>
-<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>mpa <span class="ot">&lt;-</span> <span class="fu">merge</span>(mpa, mpa_centroids,  <span class="at">by =</span> <span class="st">"File"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">#add regions here!</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>mpa_centroids<span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="fu">here</span>(<span class="st">"data/rawdata/MPA_polygons.csv"</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(<span class="sc">-</span>Area_sq_mi, <span class="sc">-</span>Type)</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>mpa_centroids<span class="sc">$</span>File <span class="ot">&lt;-</span> <span class="fu">sub</span>(<span class="st">"^"</span>, <span class="st">"tphdo_mpa_"</span>, mpa_centroids<span class="sc">$</span>OBJECTID )</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>mpa_centroids <span class="ot">&lt;-</span> mpa_centroids <span class="sc">%&gt;%</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">region =</span> <span class="fu">ifelse</span>(degy <span class="sc">&gt;=</span> <span class="fl">37.29</span>, <span class="st">"norca"</span>, </span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>                         <span class="fu">ifelse</span>(degy <span class="sc">&gt;</span> <span class="fl">34.8</span>, <span class="st">"centralca"</span>, </span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>                                <span class="fu">ifelse</span>(<span class="st">"degy"</span> <span class="sc">&lt;</span> <span class="fl">34.274</span> <span class="sc">&amp;</span> <span class="st">"degx"</span> <span class="sc">&lt;</span> <span class="sc">-</span><span class="fl">119.220</span>, <span class="st">"channelisl"</span> , </span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>                                       <span class="st">"socal"</span>))))</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>channel <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"Anacapa Island FMCA"</span>, <span class="st">"Anacapa Island FMR"</span>, <span class="st">"Anacapa Island SMCA"</span>, <span class="st">"Anacapa Island SMR"</span>, <span class="st">"Anacapa Island Special Closure"</span>, </span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>             <span class="st">"Arrow Point to Lion Head Point SMCA"</span>, <span class="st">"Begg Rock SMR"</span>, <span class="st">"Blue Cavern Offshore SMCA"</span>, <span class="st">"Blue Cavern Onshore SMCA (No-Take)"</span>, </span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>             <span class="st">"Carrington Point SMR"</span>, <span class="st">"Casino Point SMCA (No-Take)"</span>, <span class="st">"Cat Harbor SMCA"</span>, <span class="st">"Farnsworth Offshore SMCA"</span>, <span class="st">"Farnsworth Onshore SMCA"</span>, </span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>             <span class="st">"Footprint FMR"</span>, <span class="st">"Footprint SMR"</span>, <span class="st">"Gull Island FMR"</span>, <span class="st">"Gull Island SMR"</span>, <span class="st">"Harris Point FMR"</span>, <span class="st">"Harris Point SMR"</span>, <span class="st">"Judith Rock SMR"</span>, </span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>             <span class="st">"Long Point SMR"</span>, <span class="st">"Lover’s Cove SMCA"</span>, <span class="st">"Painted Cave SMCA"</span>, <span class="st">"Richardson Rock FMR"</span>, <span class="st">"Richardson Rock SMR"</span>, <span class="st">"San Miguel Island Special Closure"</span>, </span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>             <span class="st">"Santa Barbara Island FMR"</span>, <span class="st">"Santa Barbara Island SMR"</span>, <span class="st">"Scorpion FMR"</span>, <span class="st">"Scorpion SMR"</span>, <span class="st">"Skunk Point SMR"</span>, <span class="st">"South Point FMR"</span>, <span class="st">"South Point SMR"</span>)</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>mpa_centroids<span class="sc">$</span>region[mpa_centroids<span class="sc">$</span>NAME <span class="sc">%in%</span> channel]  <span class="ot">&lt;-</span> <span class="st">"channel"</span> </span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>mpa <span class="ot">&lt;-</span> <span class="fu">merge</span>(mpa, mpa_centroids,  <span class="at">by =</span> <span class="st">"File"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 </div>
 </section>
@@ -209,12 +178,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="cell">
 <details>
 <summary>Code</summary>
-<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co">#calculate climatology for each MPA for each time period</span></span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>mpa_climatology <span class="ot">&lt;-</span> mpa <span class="sc">%&gt;%</span></span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(File, Month, period) <span class="sc">%&gt;%</span></span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">summarise</span>(<span class="at">T_clim =</span> <span class="fu">mean</span>(Temp), </span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>              <span class="at">pH_clim =</span> <span class="fu">mean</span>(pH), </span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>              <span class="at">DO_clim =</span>   <span class="fu">mean</span>(DO))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">#calculate climatology for each MPA for each time period</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>mpa_climatology <span class="ot">&lt;-</span> mpa <span class="sc">%&gt;%</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(File, Month, period) <span class="sc">%&gt;%</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">summarise</span>(<span class="at">T_clim =</span> <span class="fu">mean</span>(Temp), </span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>              <span class="at">pH_clim =</span> <span class="fu">mean</span>(pH), </span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>              <span class="at">DO_clim =</span>   <span class="fu">mean</span>(DO))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 </div>
 </section>
@@ -227,75 +196,79 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="cell">
 <details>
 <summary>Code</summary>
-<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="do">##below creates empty vectors as big as we need (365 days per mpa) for each variable and each mpa. julianday is dates 1-365 as many mpa times</span></span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>mpaslist <span class="ot">=</span> <span class="fu">unique</span>(mpa<span class="sc">$</span>File) </span>
-<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>mpas <span class="ot">=</span> <span class="fu">rep</span>(<span class="cn">NA</span>, <span class="dv">365</span><span class="sc">*</span><span class="dv">121</span>)</span>
-<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>julianday <span class="ot">=</span> <span class="fu">rep</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">365</span>, <span class="dv">121</span>)</span>
-<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>interp <span class="ot">=</span> <span class="fu">rep</span>(<span class="cn">NA</span>, <span class="dv">365</span><span class="sc">*</span><span class="dv">121</span>)</span>
-<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="co">#Set up a vector of julian day assignment for the 15th of each month and the first and last day of the year</span></span>
-<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>x_in <span class="ot">&lt;-</span> <span class="fu">yday</span>(<span class="fu">as.Date</span>(<span class="fu">c</span>(<span class="st">"2001-01-01"</span>, </span>
-<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>                       <span class="st">"2001-01-15"</span>,<span class="st">"2001-02-15"</span>,<span class="st">"2001-03-15"</span>,<span class="st">"2001-04-15"</span>,</span>
-<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>                       <span class="st">"2001-05-15"</span>,<span class="st">"2001-06-15"</span>,<span class="st">"2001-07-15"</span>,<span class="st">"2001-08-15"</span>,</span>
-<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>                       <span class="st">"2001-09-15"</span>,<span class="st">"2001-10-15"</span>,<span class="st">"2001-11-15"</span>,<span class="st">"2001-12-15"</span>, </span>
-<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>                       <span class="st">"2001-12-31"</span>)))</span>
-<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a><span class="co"># creating a list of all the days of the year to interpolate to.</span></span>
-<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>x_out <span class="ot">&lt;-</span> (<span class="dv">1</span><span class="sc">:</span><span class="dv">365</span>) </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="do">##below creates empty vectors as big as we need (365 days per mpa) for each variable and each mpa. julianday is dates 1-365 as many mpa times</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>mpaslist <span class="ot">=</span> <span class="fu">unique</span>(mpa<span class="sc">$</span>File) </span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>mpas <span class="ot">=</span> <span class="fu">rep</span>(<span class="cn">NA</span>, <span class="dv">365</span><span class="sc">*</span><span class="dv">121</span>)</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>julianday <span class="ot">=</span> <span class="fu">rep</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">365</span>, <span class="dv">121</span>)</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>interp <span class="ot">=</span> <span class="fu">rep</span>(<span class="cn">NA</span>, <span class="dv">365</span><span class="sc">*</span><span class="dv">121</span>)</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="co">#Set up a vector of julian day assignment for the 15th of each month and the first and last day of the year</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>x_in <span class="ot">&lt;-</span> <span class="fu">yday</span>(<span class="fu">as.Date</span>(<span class="fu">c</span>(<span class="st">"2001-01-01"</span>, </span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>                       <span class="st">"2001-01-15"</span>,<span class="st">"2001-02-15"</span>,<span class="st">"2001-03-15"</span>,<span class="st">"2001-04-15"</span>,</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>                       <span class="st">"2001-05-15"</span>,<span class="st">"2001-06-15"</span>,<span class="st">"2001-07-15"</span>,<span class="st">"2001-08-15"</span>,</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>                       <span class="st">"2001-09-15"</span>,<span class="st">"2001-10-15"</span>,<span class="st">"2001-11-15"</span>,<span class="st">"2001-12-15"</span>, </span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>                       <span class="st">"2001-12-31"</span>)))</span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a><span class="co"># creating a list of all the days of the year to interpolate to.</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>x_out <span class="ot">&lt;-</span> (<span class="dv">1</span><span class="sc">:</span><span class="dv">365</span>) </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 </div>
 <div class="cell">
 <details>
 <summary>Code</summary>
-<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>interpolate <span class="ot">&lt;-</span> <span class="cf">function</span>(periodt, variable){</span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  mpa_period_climatology <span class="ot">&lt;-</span> mpa_climatology <span class="sc">%&gt;%</span></span>
-<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">filter</span>(period <span class="sc">==</span> periodt)</span>
-<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">length</span>(mpaslist)){ <span class="co">#for each mpa</span></span>
-<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>    d <span class="ot">&lt;-</span> mpa_period_climatology <span class="sc">%&gt;%</span> <span class="co">#for given mpa iterating through, selects var from clim</span></span>
-<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>      <span class="fu">filter</span>(File <span class="sc">==</span> mpaslist[i]) <span class="sc">%&gt;%</span> </span>
-<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>      <span class="fu">select</span>(File,Month, <span class="sc">!!</span><span class="fu">sym</span>(variable))</span>
-<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a><span class="co">#use a weighted average. for dec 31, slightly more than half weight to dec (denoted by [12,3] index - 12 is the month, third column is the variable's clim value), little less than   half weight to jan. for jan 1, slightly more weight to jan, little less weight to dec. </span></span>
-<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>    Dec31 <span class="ot">=</span> <span class="fu">as.numeric</span>(( ((<span class="dv">16</span><span class="sc">/</span><span class="dv">30</span>) <span class="sc">*</span> (d[<span class="dv">12</span>,<span class="dv">3</span>])) <span class="sc">+</span>  </span>
-<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>                           ((<span class="dv">14</span><span class="sc">/</span><span class="dv">30</span>) <span class="sc">*</span> d[<span class="dv">1</span>,<span class="dv">3</span>]) )) </span>
-<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>    Jan1 <span class="ot">=</span> <span class="fu">as.numeric</span>(( ((<span class="dv">14</span><span class="sc">/</span><span class="dv">30</span>) <span class="sc">*</span> (d[<span class="dv">12</span>,<span class="dv">3</span>])) <span class="sc">+</span> </span>
-<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>                          ((<span class="dv">16</span><span class="sc">/</span><span class="dv">30</span>) <span class="sc">*</span> d[<span class="dv">1</span>,<span class="dv">3</span>]) ))</span>
-<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>    y_in <span class="ot">&lt;-</span> <span class="fu">c</span>(Jan1, d[[variable]], Dec31)</span>
-<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>    mod <span class="ot">&lt;-</span> <span class="fu">approx</span>(<span class="at">x =</span> x_in, <span class="co">#days to interpolate from</span></span>
-<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>                 <span class="at">y =</span> y_in, <span class="co">#temp values per day in x_in</span></span>
-<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>                 <span class="at">xout =</span> x_out) <span class="co">#1-365 days to interpolate out to</span></span>
-<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a>    <span class="co">#I don't understand this part</span></span>
-<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>    mpas[((i<span class="dv">-1</span>)<span class="sc">*</span><span class="dv">365</span><span class="sc">+</span><span class="dv">1</span>)<span class="sc">:</span>(i<span class="sc">*</span><span class="dv">365</span>)] <span class="ot">&lt;-</span> mpaslist[i] <span class="co">#rep(mpaslist[1], 365)</span></span>
-<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>    interp[((i<span class="dv">-1</span>)<span class="sc">*</span><span class="dv">365</span><span class="sc">+</span><span class="dv">1</span>)<span class="sc">:</span>(i<span class="sc">*</span><span class="dv">365</span>)] <span class="ot">&lt;-</span> mod<span class="sc">$</span>y</span>
-<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a>  df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(mpas, julianday, interp) <span class="sc">%&gt;%</span></span>
-<span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a>    <span class="fu">rename</span>(<span class="at">File =</span> mpas) <span class="sc">%&gt;%</span></span>
-<span id="cb7-31"><a href="#cb7-31" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">period =</span> periodt) <span class="sc">%&gt;%</span></span>
-<span id="cb7-32"><a href="#cb7-32" aria-hidden="true" tabindex="-1"></a>    <span class="fu">rename</span>(<span class="sc">!!</span><span class="fu">sym</span>(variable) <span class="sc">:</span><span class="er">=</span> interp)</span>
-<span id="cb7-33"><a href="#cb7-33" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb7-34"><a href="#cb7-34" aria-hidden="true" tabindex="-1"></a>  <span class="fu">assign</span>(<span class="at">x =</span> <span class="fu">paste</span>(<span class="st">"interp"</span>,variable,periodt, <span class="at">sep=</span><span class="st">"_"</span>), <span class="at">value =</span> df, <span class="at">envir =</span> <span class="fu">globalenv</span>())</span>
-<span id="cb7-35"><a href="#cb7-35" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb7-36"><a href="#cb7-36" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb7-37"><a href="#cb7-37" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-38"><a href="#cb7-38" aria-hidden="true" tabindex="-1"></a><span class="fu">interpolate</span>(<span class="st">"historic"</span>, <span class="st">"T_clim"</span>)</span>
-<span id="cb7-39"><a href="#cb7-39" aria-hidden="true" tabindex="-1"></a><span class="fu">interpolate</span>(<span class="st">"midcen"</span>, <span class="st">"T_clim"</span>)</span>
-<span id="cb7-40"><a href="#cb7-40" aria-hidden="true" tabindex="-1"></a><span class="fu">interpolate</span>(<span class="st">"endcen"</span>, <span class="st">"T_clim"</span>)</span>
-<span id="cb7-41"><a href="#cb7-41" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-42"><a href="#cb7-42" aria-hidden="true" tabindex="-1"></a><span class="fu">interpolate</span>(<span class="st">"historic"</span>, <span class="st">"pH_clim"</span>)</span>
-<span id="cb7-43"><a href="#cb7-43" aria-hidden="true" tabindex="-1"></a><span class="fu">interpolate</span>(<span class="st">"midcen"</span>, <span class="st">"pH_clim"</span>)</span>
-<span id="cb7-44"><a href="#cb7-44" aria-hidden="true" tabindex="-1"></a><span class="fu">interpolate</span>(<span class="st">"endcen"</span>, <span class="st">"pH_clim"</span>)</span>
-<span id="cb7-45"><a href="#cb7-45" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-46"><a href="#cb7-46" aria-hidden="true" tabindex="-1"></a><span class="fu">interpolate</span>(<span class="st">"historic"</span>, <span class="st">"DO_clim"</span>)</span>
-<span id="cb7-47"><a href="#cb7-47" aria-hidden="true" tabindex="-1"></a><span class="fu">interpolate</span>(<span class="st">"midcen"</span>, <span class="st">"DO_clim"</span>)</span>
-<span id="cb7-48"><a href="#cb7-48" aria-hidden="true" tabindex="-1"></a><span class="fu">interpolate</span>(<span class="st">"endcen"</span>, <span class="st">"DO_clim"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>interpolate <span class="ot">&lt;-</span> <span class="cf">function</span>(periodt, variable){</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  mpa_period_climatology <span class="ot">&lt;-</span> mpa_climatology <span class="sc">%&gt;%</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">filter</span>(period <span class="sc">==</span> periodt)</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">length</span>(mpaslist)){ <span class="co">#for each mpa</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>    d <span class="ot">&lt;-</span> mpa_period_climatology <span class="sc">%&gt;%</span> <span class="co">#for given mpa iterating through, selects var from clim</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>      <span class="fu">filter</span>(File <span class="sc">==</span> mpaslist[i]) <span class="sc">%&gt;%</span> </span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>      <span class="fu">select</span>(File,Month, <span class="sc">!!</span><span class="fu">sym</span>(variable))</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a><span class="co">#use a weighted average. for dec 31, slightly more than half weight to dec (denoted by [12,3] index - 12 is the month, third column is the variable's clim value), little less than   half weight to jan. for jan 1, slightly more weight to jan, little less weight to dec. </span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>    Dec31 <span class="ot">=</span> <span class="fu">as.numeric</span>(( ((<span class="dv">16</span><span class="sc">/</span><span class="dv">30</span>) <span class="sc">*</span> (d[<span class="dv">12</span>,<span class="dv">3</span>])) <span class="sc">+</span>  </span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>                           ((<span class="dv">14</span><span class="sc">/</span><span class="dv">30</span>) <span class="sc">*</span> d[<span class="dv">1</span>,<span class="dv">3</span>]) )) </span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>    Jan1 <span class="ot">=</span> <span class="fu">as.numeric</span>(( ((<span class="dv">14</span><span class="sc">/</span><span class="dv">30</span>) <span class="sc">*</span> (d[<span class="dv">12</span>,<span class="dv">3</span>])) <span class="sc">+</span> </span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>                          ((<span class="dv">16</span><span class="sc">/</span><span class="dv">30</span>) <span class="sc">*</span> d[<span class="dv">1</span>,<span class="dv">3</span>]) ))</span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>    y_in <span class="ot">&lt;-</span> <span class="fu">c</span>(Jan1, d[[variable]], Dec31)</span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>    mod <span class="ot">&lt;-</span> <span class="fu">approx</span>(<span class="at">x =</span> x_in, <span class="co">#days to interpolate from</span></span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a>                 <span class="at">y =</span> y_in, <span class="co">#temp values per day in x_in</span></span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a>                 <span class="at">xout =</span> x_out) <span class="co">#1-365 days to interpolate out to</span></span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a>    <span class="co">#I don't understand this part</span></span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a>    mpas[((i<span class="dv">-1</span>)<span class="sc">*</span><span class="dv">365</span><span class="sc">+</span><span class="dv">1</span>)<span class="sc">:</span>(i<span class="sc">*</span><span class="dv">365</span>)] <span class="ot">&lt;-</span> mpaslist[i] <span class="co">#rep(mpaslist[1], 365)</span></span>
+<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a>    interp[((i<span class="dv">-1</span>)<span class="sc">*</span><span class="dv">365</span><span class="sc">+</span><span class="dv">1</span>)<span class="sc">:</span>(i<span class="sc">*</span><span class="dv">365</span>)] <span class="ot">&lt;-</span> mod<span class="sc">$</span>y</span>
+<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a>  df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(mpas, julianday, interp) <span class="sc">%&gt;%</span></span>
+<span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a>    <span class="fu">rename</span>(<span class="at">File =</span> mpas) <span class="sc">%&gt;%</span></span>
+<span id="cb6-31"><a href="#cb6-31" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">period =</span> periodt) <span class="sc">%&gt;%</span></span>
+<span id="cb6-32"><a href="#cb6-32" aria-hidden="true" tabindex="-1"></a>    <span class="fu">rename</span>(<span class="sc">!!</span><span class="fu">sym</span>(variable) <span class="sc">:</span><span class="er">=</span> interp)</span>
+<span id="cb6-33"><a href="#cb6-33" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb6-34"><a href="#cb6-34" aria-hidden="true" tabindex="-1"></a>  <span class="fu">assign</span>(<span class="at">x =</span> <span class="fu">paste</span>(<span class="st">"interp"</span>,variable,periodt, <span class="at">sep=</span><span class="st">"_"</span>), <span class="at">value =</span> df, <span class="at">envir =</span> <span class="fu">globalenv</span>())</span>
+<span id="cb6-35"><a href="#cb6-35" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb6-36"><a href="#cb6-36" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">interpolate</span>(<span class="st">"historic"</span>, <span class="st">"T_clim"</span>)</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="fu">interpolate</span>(<span class="st">"midcen"</span>, <span class="st">"T_clim"</span>)</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="fu">interpolate</span>(<span class="st">"endcen"</span>, <span class="st">"T_clim"</span>)</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="fu">interpolate</span>(<span class="st">"historic"</span>, <span class="st">"pH_clim"</span>)</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="fu">interpolate</span>(<span class="st">"midcen"</span>, <span class="st">"pH_clim"</span>)</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="fu">interpolate</span>(<span class="st">"endcen"</span>, <span class="st">"pH_clim"</span>)</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a><span class="fu">interpolate</span>(<span class="st">"historic"</span>, <span class="st">"DO_clim"</span>)</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a><span class="fu">interpolate</span>(<span class="st">"midcen"</span>, <span class="st">"DO_clim"</span>)</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a><span class="fu">interpolate</span>(<span class="st">"endcen"</span>, <span class="st">"DO_clim"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 </div>
 <div class="cell">
@@ -455,7 +428,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb12-28"><a href="#cb12-28" aria-hidden="true" tabindex="-1"></a>  <span class="co">#jpeg(file=here(paste("./figs/heatmap/heatmap",sumstat,".png", </span></span>
 <span id="cb12-29"><a href="#cb12-29" aria-hidden="true" tabindex="-1"></a>                       <span class="co">#sep = "_")))</span></span>
 <span id="cb12-30"><a href="#cb12-30" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb12-31"><a href="#cb12-31" aria-hidden="true" tabindex="-1"></a>  <span class="fu">heatmap.2</span>(matrix_numeric, <span class="at">Rowv =</span> <span class="cn">FALSE</span>, <span class="at">Colv =</span> <span class="cn">FALSE</span>, <span class="at">dendrogram =</span> <span class="st">"none"</span>, </span>
+<span id="cb12-31"><a href="#cb12-31" aria-hidden="true" tabindex="-1"></a>  heatmap <span class="ot">&lt;-</span> <span class="fu">heatmap.2</span>(matrix_numeric, <span class="at">Rowv =</span> <span class="cn">FALSE</span>, <span class="at">Colv =</span> <span class="cn">FALSE</span>, <span class="at">dendrogram =</span> <span class="st">"none"</span>, </span>
 <span id="cb12-32"><a href="#cb12-32" aria-hidden="true" tabindex="-1"></a>          <span class="at">main =</span> title, <span class="at">tracecol=</span><span class="cn">NA</span>, <span class="at">revC=</span> <span class="cn">TRUE</span>,</span>
 <span id="cb12-33"><a href="#cb12-33" aria-hidden="true" tabindex="-1"></a>          <span class="at">margins =</span> <span class="fu">c</span>(<span class="dv">3</span>,<span class="dv">8</span>), <span class="at">col=</span> color_palette, <span class="at">srtCol =</span> <span class="dv">360</span>, </span>
 <span id="cb12-34"><a href="#cb12-34" aria-hidden="true" tabindex="-1"></a>          <span class="at">labRow =</span> matrix<span class="sc">$</span>NAME,<span class="at">cexRow =</span> <span class="fl">0.5</span>, <span class="at">cexCol =</span> <span class="dv">1</span>, <span class="at">keysize =</span> <span class="fl">0.95</span>, </span>
@@ -493,21 +466,21 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="cell column-screen-inset-shaded quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/plot_heatmap-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_heatmap_temp-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/plot_heatmap-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_heatmap_temp-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/plot_heatmap-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_heatmap_temp-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/plot_heatmap-4.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_heatmap_temp-4.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/plot_heatmap-5.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_heatmap_temp-5.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -528,21 +501,21 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="cell column-screen-inset-shaded quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-14-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_heatmap_pH-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-14-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_heatmap_pH-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-14-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_heatmap_pH-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-14-4.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_heatmap_pH-4.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-14-5.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_heatmap_pH-5.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -563,21 +536,21 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="cell column-screen-inset-shaded quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-15-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_heatmap_DO-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-15-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_heatmap_DO-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-15-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_heatmap_DO-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-15-4.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_heatmap_DO-4.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-15-5.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_heatmap_DO-5.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -622,24 +595,24 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="cell column-screen-inset-shaded quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/plot_regression-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_regression_temp-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/plot_regression-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_regression_temp-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/plot_regression-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_regression_temp-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/plot_regression-4.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_regression_temp-4.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/plot_regression-5.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_regression_temp-5.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/plot_regression-6.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_regression_temp-6.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -661,24 +634,24 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="cell column-screen-inset-shaded quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-18-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_regression_pH-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-18-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_regression_pH-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-18-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_regression_pH-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-18-4.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_regression_pH-4.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-18-5.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_regression_pH-5.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-18-6.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_regression_pH-6.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -700,24 +673,24 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="cell column-screen-inset-shaded quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-19-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_regression_DO-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-19-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_regression_DO-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-19-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_regression_DO-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-19-4.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_regression_DO-4.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-19-5.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_regression_DO-5.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-19-6.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_regression_DO-6.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -941,7 +914,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>Reading layer `CA_Counties_TIGER2016' from data source 
-  `/Users/nikitasridhar/Documents/GitHub/MPAexposure_clean/data/rawdata/shp/CA_Counties/CA_Counties_TIGER2016.shp' 
+  `/Users/nikitasridhar/Documents/GitHub/MPAexposure/data/rawdata/shp/CA_Counties/CA_Counties_TIGER2016.shp' 
   using driver `ESRI Shapefile'
 Simple feature collection with 58 features and 17 fields
 Geometry type: MULTIPOLYGON
@@ -1013,24 +986,24 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <div class="cell column-screen-inset-shaded quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/plot_anom_map-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_anom_map_temp-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/plot_anom_map-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_anom_map_temp-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/plot_anom_map-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_anom_map_temp-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/plot_anom_map-4.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_anom_map_temp-4.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/plot_anom_map-5.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_anom_map_temp-5.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/plot_anom_map-6.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_anom_map_temp-6.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -1065,24 +1038,24 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <div class="cell column-screen-inset-shaded quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-26-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_anom_map_pH-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-26-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_anom_map_pH-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-26-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_anom_map_pH-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-26-4.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_anom_map_pH-4.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-26-5.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_anom_map_pH-5.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-26-6.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_anom_map_pH-6.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -1117,24 +1090,24 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <div class="cell column-screen-inset-shaded quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-27-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_anom_map_DO-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-27-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_anom_map_DO-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-27-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_anom_map_DO-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-27-4.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_anom_map_DO-4.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-27-5.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_anom_map_DO-5.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-27-6.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_anom_map_DO-6.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -1209,13 +1182,13 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <div class="cell column-screen-inset-shaded quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/plot_temp_sev_int_dur-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_temp_sev_int_dur_centralCA-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/plot_temp_sev_int_dur-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_temp_sev_int_dur_centralCA-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/plot_temp_sev_int_dur-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_temp_sev_int_dur_centralCA-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -1234,13 +1207,13 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <div class="cell column-screen-inset-shaded quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-30-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_temp_sev_int_dur_norCA-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-30-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_temp_sev_int_dur_norCA-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-30-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_temp_sev_int_dur_norCA-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -1259,13 +1232,13 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <div class="cell column-screen-inset-shaded quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-31-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_temp_sev_int_dur_southernCA-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-31-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_temp_sev_int_dur_southernCA-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-31-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_temp_sev_int_dur_southernCA-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -1284,13 +1257,13 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <div class="cell column-screen-inset-shaded quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-32-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-33-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-32-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-33-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-32-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-33-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -1312,13 +1285,13 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <div class="cell column-screen-inset-shaded quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-33-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-34-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-33-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-34-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-33-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-34-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -1337,13 +1310,13 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <div class="cell column-screen-inset-shaded quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-34-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-35-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-34-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-35-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-34-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-35-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -1362,13 +1335,13 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <div class="cell column-screen-inset-shaded quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-35-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-36-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-35-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-36-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-35-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-36-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -1387,13 +1360,13 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <div class="cell column-screen-inset-shaded quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-36-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-37-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-36-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-37-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-36-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-37-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -1415,13 +1388,13 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <div class="cell column-screen-inset-shaded quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-37-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-38-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-37-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-38-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-37-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-38-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -1440,13 +1413,13 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <div class="cell column-screen-inset-shaded quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-38-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-39-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-38-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-39-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-38-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-39-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -1465,13 +1438,13 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <div class="cell column-screen-inset-shaded quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-39-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-40-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-39-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-40-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-39-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-40-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -1490,13 +1463,13 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <div class="cell column-screen-inset-shaded quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-40-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-41-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-40-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-41-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-40-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-41-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -1634,13 +1607,13 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <div class="cell column-screen-inset-shaded quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-42-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-43-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-42-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-43-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-42-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-43-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -1659,13 +1632,13 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <div class="cell column-screen-inset-shaded quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-43-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-44-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-43-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-44-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-43-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-44-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -1684,13 +1657,13 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <div class="cell column-screen-inset-shaded quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-44-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-45-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-44-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-45-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-44-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-45-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -1709,13 +1682,13 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <div class="cell column-screen-inset-shaded quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-45-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-46-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-45-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-46-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-45-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-46-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -1737,13 +1710,13 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <div class="cell column-screen-inset-shaded quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-46-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-47-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-46-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-47-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-46-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-47-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -1762,13 +1735,13 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <div class="cell column-screen-inset-shaded quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-47-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-48-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-47-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-48-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-47-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-48-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -1787,13 +1760,13 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <div class="cell column-screen-inset-shaded quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-48-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-49-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-48-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-49-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-48-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-49-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -1812,13 +1785,13 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <div class="cell column-screen-inset-shaded quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-49-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-50-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-49-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-50-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-49-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-50-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -1840,13 +1813,13 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <div class="cell column-screen-inset-shaded quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-50-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-51-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-50-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-51-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-50-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-51-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -1865,13 +1838,13 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <div class="cell column-screen-inset-shaded quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-51-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-52-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-51-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-52-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-51-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-52-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -1890,13 +1863,13 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <div class="cell column-screen-inset-shaded quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-52-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-53-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-52-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-53-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-52-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-53-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -1915,18 +1888,17 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <div class="cell column-screen-inset-shaded quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-53-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-54-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-53-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-54-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-53-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/unnamed-chunk-54-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
 </div>
-</section>
 </section>
 </section>
 </section>

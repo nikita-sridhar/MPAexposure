@@ -4,12 +4,12 @@ format:
   html:
     code-fold: true
     toc: true
-project:
-  output-dir: docs
 editor: visual
 ---
 
 ```{r}
+#| echo: false
+
 knitr::opts_chunk$set(warning = FALSE, message = FALSE)
 ```
 
@@ -24,6 +24,7 @@ Load required libraries, read IPSL MPA projections file, and assign MPAs to regi
 ```{r}
 #| label: libraries
 #| message: false
+#| echo: false
 
 library(tidyverse)
 library(lubridate)
@@ -46,6 +47,7 @@ library(tmap)
 library(sf) 
 library(stringr)
 library(heatmaply)
+library(ggpubr)
 ```
 
 ```{r}
@@ -122,14 +124,14 @@ To understand event-based variation (not attributed to the seasonal cycle), we n
 
 *Q: instead of interpolating from monthly climatologies to create daily climatologies, why not average daily values to get daily climatologies?*
 
-**Setup for interpolation:**
-
-Need to create a day 1 and day 365 proxy. The approx function can only interpolate not extrapolate. The approx function is used to interpolate between the 15th day of each month, and day 1 and day 365 are used to interpolate the first 15 and last 15 days of the year.
-
 ```{r}
 #| label: inter_setup
 #| message: false
 #| warning: false
+
+#' Setup for interpolation:
+#' Need to create a day 1 and day 365 proxy. The approx function can only interpolate not extrapolate. The approx function is used to interpolate between the 15th day of each month, and day 1 and day 365 are used to interpolate the first 15 and last 15 days of the year.
+
 
 ##below creates empty vectors as big as we need (365 days per mpa) for each variable and each mpa. julianday is dates 1-365 as many mpa times
 
@@ -189,6 +191,11 @@ interpolate <- function(periodt, variable){
   assign(x = paste("interp",variable,periodt, sep="_"), value = df, envir = globalenv())
   
 }
+```
+
+```{r}
+#| label: interpolation_function_call
+
 
 interpolate("historic", "T_clim")
 interpolate("midcen", "T_clim")
@@ -223,9 +230,9 @@ interpolated_DO <- rbind(interp_DO_clim_historic,
 
 Generate summary statistics for T, pH, and DO.
 
-*Seasonal SD* is across climatologies (monthly values averaged over all years resulting in 12 values per MPA - one per month - the seasonal SD is the variation across these values).
+*Seasonal SD* is across climatologies (monthly values averaged over all years resulting in 12 values per MPA - one per month - **the seasonal SD captures the seasonal cycle,** and is the variation across these values).
 
-*Event SD* is calculated based on the deviation of daily values from interpolated daily values. The standard deviation per MPA is across all of the daily differences between daily value and interpolated values filtered for upwelling months May, June, July, August, and September (*filtered*, not *grouped by* upwelling month - the Event SD captures variation of the deviations at a daily scale).
+*Event SD* is calculated based on the deviation of daily values from interpolated daily values. The standard deviation per MPA is across all of the daily differences between daily value and interpolated values filtered for upwelling months May, June, July, August, and September (*filtered*, not *grouped by* upwelling month - the **Event SD captures variation of the deviations at a daily scale**).
 
 Additional summary stats include the mean, lower 10th percentile, and upper 10th percentile.
 
@@ -355,7 +362,7 @@ make_heatmap <- function(sumstat, color_palette = invert_col, title){
   #jpeg(file=here(paste("./figs/heatmap/heatmap",sumstat,".png", 
                        #sep = "_")))
   
-  heatmap.2(matrix_numeric, Rowv = FALSE, Colv = FALSE, dendrogram = "none", 
+  heatmap <- heatmap.2(matrix_numeric, Rowv = FALSE, Colv = FALSE, dendrogram = "none", 
           main = title, tracecol=NA, revC= TRUE,
           margins = c(3,8), col= color_palette, srtCol = 360, 
           labRow = matrix$NAME,cexRow = 0.5, cexCol = 1, keysize = 0.95, 
@@ -381,7 +388,7 @@ make_heatmap <- function(sumstat, color_palette = invert_col, title){
 #### **Temp:**
 
 ```{r}
-#| label: plot_heatmap
+#| label: plot_heatmap_temp
 #| column: screen-inset-shaded
 #| layout-ncol: 3
 
@@ -391,11 +398,13 @@ make_heatmap("Temp_high10", col, title = "Temp highest 10% across periods")
 make_heatmap("Temp_low10", col, title = "Temp lowest 10% across periods")
 make_heatmap("T_eventSD", col, title = "Temp event SD across periods")
 make_heatmap("T_seasonalSD", col, title = "Temp seasonal SD across periods")
+
 ```
 
 #### **pH**
 
 ```{r}
+#| label: plot_heatmap_pH
 #| column: screen-inset-shaded
 #| layout-ncol: 3
 
@@ -410,6 +419,7 @@ make_heatmap("pH_seasonalSD",col, title = "pH seasonal SD across periods")
 #### **DO**
 
 ```{r}
+#| label: plot_heatmap_DO
 #| column: screen-inset-shaded
 #| layout-ncol: 3
 
@@ -447,9 +457,9 @@ make_regression <- function(sumstat, period1, period2,title){
 #### **Temp**
 
 ```{r}
-#| label: plot_regression
+#| label: plot_regression_temp
 #| column: screen-inset-shaded
-#| layout-ncol: 3
+#| layout-ncol: 2
 
 #temp
     make_regression("Temp_mean", "historic", "midcen", "Historic vs. mid century temp mean")
@@ -464,8 +474,9 @@ make_regression <- function(sumstat, period1, period2,title){
 #### **pH**
 
 ```{r}
+#| label: plot_regression_pH
 #| column: screen-inset-shaded
-#| layout-ncol: 3
+#| layout-ncol: 2
 
  #pH
     make_regression("pH_mean", "historic", "midcen", "Historic vs. mid century pH mean")
@@ -479,8 +490,9 @@ make_regression <- function(sumstat, period1, period2,title){
 #### **DO**
 
 ```{r}
+#| label: plot_regression_DO
 #| column: screen-inset-shaded
-#| layout-ncol: 3
+#| layout-ncol: 2
 
 #DO
     make_regression("DO_mean", "historic", "midcen", "Historic vs. mid century DO mean")
@@ -495,33 +507,9 @@ make_regression <- function(sumstat, period1, period2,title){
 
 Identify pH/DO/temp anomalous events. Events for pH are defined as 1+ days where pH \< 7.75, and events for DO are 1+ days where DO \< 4.6. Events for temp defined as 1+ days where daily temp exceeds historical climatology's temp for that month + 2\* historical climatology SD.
 
-For each [event]{.underline}, the following are calculated:
+For each [event]{.underline}, the following are calculated: 1) Duration of days, 2) Date event began, 3) Mean pH/DO/T during the event, 4) Intensity of the event (threshold - event mean), 5) Severity of the event (intensity\*duration).
 
--   Duration of days
-
--   Date event began
-
--   Mean pH/DO/T during the event
-
--   Intensity of the event (threshold - event mean)
-
--   Severity of the event (intensity\*duration).
-
-For each [MPA]{.underline}, the following are calculated:
-
--   Number of events
-
--   Mean event duration
-
--   Mean of average event pH/DO/T
-
--   Mean event intensity
-
--   Mean event severity
-
--   Average number of events within a year
-
--   Average annual pH/DO/T during event
+For each [MPA]{.underline}, the following are calculated: 1) Number of events, 2) Mean event duration, 3) Mean of average event pH/DO/T, 4) Mean event intensity, 5) Mean event severity, 6) Average number of events within a year, 7) Average annual pH/DO/T during event
 
 ```{r}
 #| label: label_events
@@ -714,6 +702,7 @@ Maps showing anomalous event summaries in CA, including average number days cros
 
 ```{r}
 #| label: anom_map_function
+#| message = FALSE
 
 
 CA_shp <- st_read(here("./data/rawdata/shp/CA_Counties/CA_Counties_TIGER2016.shp"))
@@ -752,7 +741,7 @@ CA_shp <- st_read(here("./data/rawdata/shp/CA_Counties/CA_Counties_TIGER2016.shp
 #### **Temp**
 
 ```{r}
-#| label: plot_anom_map
+#| label: plot_anom_map_temp
 #| column: screen-inset-shaded
 #| layout-ncol: 3
 
@@ -790,6 +779,7 @@ make_anom_map(temp_mpa_summary, "Mean temperature during event",
 #### **pH**
 
 ```{r}
+#| label: plot_anom_map_pH
 #| column: screen-inset-shaded
 #| layout-ncol: 3
 
@@ -824,6 +814,7 @@ make_anom_map(pH_mpa_summary, "Mean pH during event","endcen",
 #### **DO**
 
 ```{r}
+#| label: plot_anom_map_DO
 #| column: screen-inset-shaded
 #| layout-ncol: 3
 
@@ -914,7 +905,7 @@ DO_sev_int_dur <- function(periodt, site){
 ##### Central CA:
 
 ```{r}
-#| label: plot_temp_sev_int_dur
+#| label: plot_temp_sev_int_dur_centralCA
 #| column: screen-inset-shaded
 #| layout-ncol: 3
   
@@ -928,6 +919,7 @@ temp_sev_int_dur("endcen", "Ano Nuevo SMR")
 ##### Northern CA:
 
 ```{r}
+#| label: plot_temp_sev_int_dur_norCA
 #| column: screen-inset-shaded
 #| layout-ncol: 3
 
@@ -940,6 +932,7 @@ temp_sev_int_dur("endcen", "Point Arena SMR")
 ##### Southern CA :
 
 ```{r}
+#| label: plot_temp_sev_int_dur_southernCA
 #| column: screen-inset-shaded
 #| layout-ncol: 3
 
@@ -1095,7 +1088,6 @@ mpa %>%
 }
 
 
-make_time_series("historic","Ano Nuevo SMR", "pH") 
 
 
 #this fig shows time series in julian days w/ envelope wrt given period's SD (NOT historic, as it should be for calculating anomalous event!)
@@ -1183,6 +1175,7 @@ mpa %>%
 ```{r}
 #| column: screen-inset-shaded
 #| layout-ncol: 3
+#| echo: false
 
 #central
 make_temp_time_series("historic","Ano Nuevo SMR", title = "Historic Temp at Ano Nuevo") 
@@ -1195,6 +1188,7 @@ make_temp_time_series("endcen","Ano Nuevo SMR", title = "Endcen Temp at Ano Nuev
 ```{r}
 #| column: screen-inset-shaded
 #| layout-ncol: 3
+#| echo: false
 
 #northern 
 make_temp_time_series("historic","Point Arena SMR", title = "Historic Temp at Point Arena SMR")
@@ -1207,6 +1201,7 @@ make_temp_time_series("endcen","Point Arena SMR", title = "Endcen Temp at Point 
 ```{r}
 #| column: screen-inset-shaded
 #| layout-ncol: 3
+#| echo: false
 
 #southern
 make_temp_time_series("historic","South La Jolla SMR", title = "Historic Temp at South La Jolla SMR")
@@ -1219,6 +1214,7 @@ make_temp_time_series("endcen","South La Jolla SMR", title = "Endcen Temp at Sou
 ```{r}
 #| column: screen-inset-shaded
 #| layout-ncol: 3
+#| echo: false
 
 #channel
 make_temp_time_series("historic","Anacapa Island FMR", title = "Historic Temp at Anacapa Island FMR")
@@ -1233,6 +1229,7 @@ make_temp_time_series("endcen","Anacapa Island FMR", title = "Endcen Temp at Ana
 ```{r}
 #| column: screen-inset-shaded
 #| layout-ncol: 3
+#| echo: false
 
 #central
 make_pH_time_series("historic","Ano Nuevo SMR", title = "Historic pH at Ano Nuevo") 
@@ -1245,6 +1242,7 @@ make_pH_time_series("endcen","Ano Nuevo SMR", title = "Endcen pH at Ano Nuevo")
 ```{r}
 #| column: screen-inset-shaded
 #| layout-ncol: 3
+#| echo: false
 
 #northern
 make_pH_time_series("historic","Point Arena SMR", title = "Historic pH at Point Arena SMR") 
@@ -1257,6 +1255,7 @@ make_pH_time_series("endcen","Point Arena SMR", title = "Endcen pH at Point Aren
 ```{r}
 #| column: screen-inset-shaded
 #| layout-ncol: 3
+#| echo: false
 
 #southern
 make_pH_time_series("historic","South La Jolla SMR", title = "Historic pH at South La Jolla SMR") 
@@ -1269,6 +1268,7 @@ make_pH_time_series("endcen","South La Jolla SMR", title = "Endcen pH at South L
 ```{r}
 #| column: screen-inset-shaded
 #| layout-ncol: 3
+#| echo: false
 
 #channel
 make_pH_time_series("historic","Anacapa Island FMR", title = "Historic pH at Anacapa Island FMR") 
@@ -1283,6 +1283,7 @@ make_pH_time_series("endcen","Anacapa Island FMR", title = "Endcen pH at Anacapa
 ```{r}
 #| column: screen-inset-shaded
 #| layout-ncol: 3
+#| echo: false
 
 #central
 make_DO_time_series("historic","Ano Nuevo SMR", title = "Historic DO at Ano Nuevo") 
@@ -1295,6 +1296,7 @@ make_DO_time_series("endcen","Ano Nuevo SMR", title = "Endcen DO at Ano Nuevo")
 ```{r}
 #| column: screen-inset-shaded
 #| layout-ncol: 3
+#| echo: false
 
 #northern
 make_DO_time_series("historic","Point Arena SMR", title = "Historic DO at Point Arena SMR") 
@@ -1307,6 +1309,7 @@ make_DO_time_series("endcen","Point Arena SMR", title = "Endcen DO at Point Aren
 ```{r}
 #| column: screen-inset-shaded
 #| layout-ncol: 3
+#| echo: false
 
 #southern
 make_DO_time_series("historic","South La Jolla SMR", title = "Historic DO at South La Jolla SMR") 
@@ -1319,6 +1322,7 @@ make_DO_time_series("endcen","South La Jolla SMR", title = "Endcen DO at South L
 ```{r}
 #| column: screen-inset-shaded
 #| layout-ncol: 3
+#| echo: false
 
 #channel
 make_DO_time_series("historic","Anacapa Island FMR", title = "Historic DO at Anacapa Island FMR") 
