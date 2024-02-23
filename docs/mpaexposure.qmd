@@ -299,7 +299,12 @@ make_pca <- function(df, periodt){
   sumsub <- sum_period %>% select(-OBJECTID,-NAME, -File, -SHORTNAME, -degx, 
                                   -degy, -region, -period, -Date) 
   
-  pca <- prcomp(sumsub, scale = TRUE)
+  if (periodt = "historic"){
+  pca <- prcomp(sumsub[,-1], scale = TRUE)}
+  
+  else
+  pca <- prcomp(sumsub, scale = TRUE)}
+
   
   fviz_pca_biplot(pca, repel = TRUE,
                   col.var = "black",
