@@ -26,6 +26,16 @@ Here, we aim to:
 
 #### **Will future environmental change overlay onto current patterns of variability?**
 
+To determine whether patterns driving trends (in T, pH, and DO mean, standard deviation, and lower/upper 10th percentile), spatially change in future time periods compared to the present time period, we conducted a Principal Component Analysis and regression analysis.
+
+Mean conditions and variation in conditions (within and across regions) remain mostly similar from the historical time through mid-century until the end-of-century time period. Regions become slightly more distinctly clustered by end-of-century.
+
+::: {#fig-pca layout-ncol="2"}
+![Historic time period](mpaexposure_files/figure-html/plot_pca-1.png){#fig-pca-historic}
+
+![End-of-century time period](mpaexposure_files/figure-html/plot_pca-3.png){#fig-pca-endcen}
+:::
+
 #### How will the mean and variability of multivariate conditions in future time periods vary from historical time periods?
 
 #### How will the number and frequency of anomalous events change in the future?
