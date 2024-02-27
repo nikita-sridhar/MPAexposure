@@ -48,6 +48,7 @@ library(sf)
 library(stringr)
 library(heatmaply)
 library(ggpubr)
+library(ggrepel)
 ```
 
 ```{r}
@@ -299,11 +300,12 @@ make_pca <- function(df, periodt){
   sumsub <- sum_period %>% select(-OBJECTID,-NAME, -File, -SHORTNAME, -degx, 
                                   -degy, -region, -period, -Date) 
   
-  if (periodt = "historic"){
-  pca <- prcomp(sumsub[,-1], scale = TRUE)}
-  
-  else
-  pca <- prcomp(sumsub, scale = TRUE)}
+  #only historic time period's pc axis needs to be rotated 
+  if (periodt == "endcen"){
+  pca <- prcomp(sumsub[,-1], scale = TRUE)
+  } else {
+  pca <- prcomp(sumsub, scale = TRUE)
+  }
 
   
   fviz_pca_biplot(pca, repel = TRUE,
@@ -444,15 +446,16 @@ Supplements heatmaps by looking at the correlation between historic and future t
 #| label: regression_function
 
 make_regression <- function(sumstat, period1, period2,title){
- plot_matrix <- sum %>%
+ 
+  plot_matrix <- sum %>%
    filter(period == period1 | period == period2) %>%
-   select(sumstat, period, NAME, File) %>%
+   select(sumstat, period, NAME, File, OBJECTID, region) %>%
    pivot_wider(names_from = period, values_from = sumstat) 
  
   ggplot(data = plot_matrix, aes_string(x = period1, y = period2)) +
-   stat_poly_line() +
+   stat_poly_line(colour = "black") +
    stat_poly_eq(use_label(c("eq", "R2"))) +
-   geom_point() +
+   geom_point(aes(colour = region), alpha = 0.7) +
    theme_classic() +
    ggtitle(title)
  
@@ -467,12 +470,12 @@ make_regression <- function(sumstat, period1, period2,title){
 #| layout-ncol: 2
 
 #temp
-    make_regression("Temp_mean", "historic", "midcen", "Historic vs. mid century temp mean")
-    make_regression("Temp_mean", "historic", "endcen", "Historic vs. end century temp mean")
-    make_regression("T_seasonalSD", "historic", "midcen", "Historic vs. mid century temp seasonal SD")
-    make_regression("T_seasonalSD", "historic", "endcen", "Historic vs. end century temp seasonal SD")
-    make_regression("T_eventSD", "historic", "midcen", "Historic vs. mid century temp event SD")
-    make_regression("T_eventSD", "historic", "endcen", "Historic vs. end century temp event SD")
+make_regression("Temp_mean", "historic", "midcen", "Historic vs. mid century temp mean")
+make_regression("Temp_mean", "historic", "endcen", "Historic vs. end century temp mean")
+make_regression("T_seasonalSD", "historic", "midcen", "Historic vs. mid century temp seasonal SD")
+make_regression("T_seasonalSD", "historic", "endcen", "Historic vs. end century temp seasonal SD")
+make_regression("T_eventSD", "historic", "midcen", "Historic vs. mid century temp event SD")
+make_regression("T_eventSD", "historic", "endcen", "Historic vs. end century temp event SD")
   
 ```
 
@@ -707,7 +710,7 @@ Maps showing anomalous event summaries in CA, including average number days cros
 
 ```{r}
 #| label: anom_map_function
-#| message = FALSE
+#| message: FALSE
 
 
 CA_shp <- st_read(here("./data/rawdata/shp/CA_Counties/CA_Counties_TIGER2016.shp"))

@@ -1,34 +1,50 @@
 ---
 title: "Interpretation of Results: Exposure of CA MPAs to Future Climate"
-format: 
-  html:
-    toc: true
+format: html
 editor: visual
 ---
 
 ## Importance of understanding MPA exposure to future change
 
-MPAs are an important tool for protection of habitats, but little is known about how they will protect habitats in a changing climate. Many ecological principles and societal concerns informed the establishment of California’s MPA network [(Gleason et al., 2013)](https://www.zotero.org/google-docs/?gmaSpT). For example, sites were chosen to represent important nearshore habitats, such as kelp forests, and ensure connectivity between populations [(Gleason et al., 2010)](https://www.zotero.org/google-docs/?fHGzDW). However, at the time of establishment little research was available on the geographic variability in exposure of MPAs to climate stressors. Theory indicates MPAs may aid in climate resilience as they support larger-bodied individuals that may better withstand climate stress and robust populations due to high gene flow from connectivity [(Hamilton et al., 2023)](https://www.zotero.org/google-docs/?v5VdbD). However, without knowing what climate conditions are expected in the future, it is difficult to predict how well MPAs will protect habitats. 
+MPAs are an important tool for protection of habitats, but little is known about how they will protect habitats in a changing climate. Many ecological principles and societal concerns informed the establishment of California’s MPA network (Gleason et al., 2013). For example, sites were chosen to represent important nearshore habitats, such as kelp forests, and ensure connectivity between populations (Gleason et al., 2010). However, at the time of establishment little research was available on the geographic variability in exposure of MPAs to climate stressors. Theory indicates MPAs may aid in climate resilience as they support larger-bodied individuals that may better withstand climate stress and robust populations due to high gene flow from connectivity (Hamilton et al., 2023). However, without knowing what climate conditions are expected in the future, it is difficult to predict how well MPAs will protect habitats. 
 
 ## Characterizing exposure of future projections:
 
-The spatio-temporal landscape of the CA coast is highly variable due to complex interplay of physical and biogeochemical processes like upwelling, creating a mosaic of temperature, pH, and dissolved oxygen conditions [(Kroeker et al., 2023)](https://www.zotero.org/google-docs/?34CKMQ). As warming, ocean acidification, and deoxygenation accelerate, MPAs will be exposed to unique stressor magnitudes and combinations. There is no “one size fits all strategy” to predicting effects of climate change in MPAs as the CA network spans such highly multivariate environmental conditions - one MPA may experience very different conditions to another. Thus, it is important to understand whether **future environmental change will overlay onto current patterns of variability in CA, or whether new sites of vulnerability may emerge in the future** to better contextualize the efficacy of MPAs. 
+The spatio-temporal landscape of the CA coast is highly variable due to complex interplay of physical and biogeochemical processes like upwelling, creating a mosaic of temperature, pH, and dissolved oxygen conditions (Kroeker et al., 2023). As warming, ocean acidification, and deoxygenation accelerate, MPAs will be exposed to unique stressor magnitudes and combinations. There is no “one size fits all strategy” to predicting effects of climate change in MPAs as the CA network spans such highly multivariate environmental conditions - one MPA may experience very different conditions to another. Thus, it is important to understand whether **future environmental change will overlay onto current patterns of variability in CA, or whether new sites of vulnerability may emerge in the future** to better contextualize the efficacy of MPAs. 
 
-#### **Will future environmental change overlay onto current patterns of variability?**
+#### *How do stressor-associated variables (T, pH, and DO mean, standard deviation, and lower/upper 10th percentile) drive the spatial clustering of regions in CA, and how will these patterns change in the future?*
 
-To determine whether patterns driving trends (in T, pH, and DO mean, standard deviation, and lower/upper 10th percentile), spatially change in future time periods compared to the present time period, we conducted a Principal Component Analysis and regression analysis.
+Mean conditions and variation in conditions (within and across regions) remain similar from the historical time through mid-century time period. By the end-of-century, Northern CA and Central CA become more distinctly clustered, with less overlap with other regions, whereas Southern CA and the Channel Islands have more overlap by the end-of-century (Fig. 1 & 2).
 
-Mean conditions and variation in conditions (within and across regions) remain mostly similar from the historical time through mid-century until the end-of-century time period. Regions become slightly more distinctly clustered by end-of-century.
+::: {layout-ncol="2"}
+![Historic time period](mpaexposure_files/figure-html/plot_pca-1.png){#fig-pca-1}
 
-<div>
+![End-of-century time period](mpaexposure_files/figure-html/plot_pca-3.png){#fig-pca-3 width="583"}
+:::
 
-<div>
+#### *Can we predict future spatial trends in stressor-associated variables based on historical trends? What are implications of deviating future trends on MPAs?*
 
-\![
+A regression analysis, looking at correlations between historical and future-time periods for different summary statistics shows finer-scale spatial trends in summary statistics through time, allowing us to identify MPAs that standout as anomalies, perhaps not following trends of other MPAs in the same region, i.e. a hotspot (above line) or bright spot (below line). Or, understanding which summary statistics can be predicted by present day values, versus those which will behave differently in the future compared to the present.
 
-</div>
+This analysis shows that future variation in temperature due to the seasonal cycle is not predicted very well by present seasonal variation in temperature as the correlation between time-periods breaks down by the end-of-century.
 
-</div>
+::: {layout-ncol="2"}
+![Historic vs. mid-century](mpaexposure_files/figure-html/plot_regression_temp-3.png){#fig-regression-1}
+
+![Historic vs. end-century](mpaexposure_files/figure-html/plot_regression_temp-4.png){#fig-regression-2}
+:::
+
+Other summary statistics for temperature (mean and event-based standard deviation) can be predicted in future time periods fairly well based on historical values. The same is true for means and event/seasonal SD for pH and DO.
+
+> Key takeaways:
+>
+> -   Patterns driving regional clustering stay mostly the same from historic till end-of-century time periods
+>
+> -   Most future summary statistic values can be predicted by historical values. However,
+>
+>     -   temperature seasonal variation either breaks down, or follows new patterns by the end-of-century
+>
+>     -   
 
 Since organismal vulnerability to climate change can differ (i.e. mean conditions may be stressful for some, whereas frequent anomalous events may be stressful to others) **we characterize exposure of MPAs to future climate change representing various measures of vulnerability**. Understanding future patterns of warming and acidification will inform our expectations for geographic variation in MPA efficacy and resilience to environmental change.
 
