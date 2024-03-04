@@ -8,7 +8,7 @@ editor: visual
 
 MPAs are an important tool for protection of habitats, but little is known about how they will protect habitats in a changing climate. Many ecological principles and societal concerns informed the establishment of California’s MPA network (Gleason et al., 2013). For example, sites were chosen to represent important nearshore habitats, such as kelp forests, and ensure connectivity between populations (Gleason et al., 2010). However, at the time of establishment little research was available on the geographic variability in exposure of MPAs to climate stressors. Theory indicates MPAs may aid in climate resilience as they support larger-bodied individuals that may better withstand climate stress and robust populations due to high gene flow from connectivity (Hamilton et al., 2023). However, without knowing what climate conditions are expected in the future, it is difficult to predict how well MPAs will protect habitats. 
 
-## Characterizing exposure of future projections:
+## Characterizing exposure of future warming/acidification/deoxygenation:
 
 The spatio-temporal landscape of the CA coast is highly variable due to complex interplay of physical and biogeochemical processes like upwelling, creating a mosaic of temperature, pH, and dissolved oxygen conditions (Kroeker et al., 2023). As warming, ocean acidification, and deoxygenation accelerate, MPAs will be exposed to unique stressor magnitudes and combinations. There is no “one size fits all strategy” to predicting effects of climate change in MPAs as the CA network spans such highly multivariate environmental conditions - one MPA may experience very different conditions to another. Thus, it is important to understand whether **future environmental change will overlay onto current patterns of variability in CA, or whether new sites of vulnerability may emerge in the future** to better contextualize the efficacy of MPAs. 
 
@@ -43,11 +43,19 @@ Other summary statistics for temperature (mean and event-based standard deviatio
 > -   Most future summary statistic values can be predicted by historical values. However,
 >
 >     -   temperature seasonal variation either breaks down, or follows new patterns by the end-of-century
->
->     -   
+
+#### *Considering a different metric of exposure via an event-based analysis: Will future events follow similar spatial patterns in the future compared to historical patterns?*
 
 Since organismal vulnerability to climate change can differ (i.e. mean conditions may be stressful for some, whereas frequent anomalous events may be stressful to others) **we characterize exposure of MPAs to future climate change representing various measures of vulnerability**. Understanding future patterns of warming and acidification will inform our expectations for geographic variation in MPA efficacy and resilience to environmental change.
 
-#### **How will the mean and variability of multivariate conditions in future time periods vary from historical time periods?**
+Here we explore spatio-temporal patterns in the average number of stressful events in a year.
 
-#### **How will the number and frequency of anomalous events change in the future?**
+\[figs\]
+
+<div>
+
+DO unaffected whereas temp and pH number of events in a year increase significantly – temp events in historical time period uniformly increase, whereas for pH the spatial gradient (which is present in historical) is maintained with relative increases in number of annual events.
+
+</div>
+
+#### 

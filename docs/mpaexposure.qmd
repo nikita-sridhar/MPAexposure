@@ -4,6 +4,7 @@ format:
   html:
     code-fold: true
     toc: true
+    page-layout: full
 editor: visual
 ---
 
@@ -295,6 +296,7 @@ PCA of all summary stats (mean, lower 10th percentile, upper 10th percentile, se
 ```{r}
 #| label: pca_function
 
+
 make_pca <- function(df, periodt){
   sum_period <- df %>% filter(period == periodt) 
   sumsub <- sum_period %>% select(-OBJECTID,-NAME, -File, -SHORTNAME, -degx, 
@@ -313,8 +315,7 @@ make_pca <- function(df, periodt){
                   col.ind = sum_period$region,
                   label ="var",
                   labelsize = 3,
-                  addEllipses = TRUE,
-                  title = paste("PCA of summary statistics in", periodt,"period")) 
+                  addEllipses = TRUE) 
   #fviz_pca_ind(pca, label="none", habillage=sum_period$region,
                #addEllipses=TRUE,  col.ind = sum_period$region)
   
@@ -323,8 +324,12 @@ make_pca <- function(df, periodt){
 
 ```{r}
 #| label: plot_pca
-#| column: screen-inset-shaded
+#| echo: FALSE
 #| layout-ncol: 3
+#| fig-cap: 
+#|   - "Historical period"
+#|   - "Mid-century period"
+#|   - "End-century period"
 
 make_pca(sum, "historic")
 make_pca(sum, "midcen")
@@ -371,7 +376,7 @@ make_heatmap <- function(sumstat, color_palette = invert_col, title){
   
   heatmap <- heatmap.2(matrix_numeric, Rowv = FALSE, Colv = FALSE, dendrogram = "none", 
           main = title, tracecol=NA, revC= TRUE,
-          margins = c(3,8), col= color_palette, srtCol = 360, 
+          margins = c(3,5), col= color_palette, srtCol = 360, 
           labRow = matrix$NAME,cexRow = 0.5, cexCol = 1, keysize = 0.95, 
           key.title = sumstat, key.xlab = NA, key.ylab = NA, par(cex.main=0.5)) #+
     
@@ -396,7 +401,7 @@ make_heatmap <- function(sumstat, color_palette = invert_col, title){
 
 ```{r}
 #| label: plot_heatmap_temp
-#| column: screen-inset-shaded
+#| echo: false
 #| layout-ncol: 3
 
 #Temp heatmaps
@@ -412,8 +417,8 @@ make_heatmap("T_seasonalSD", col, title = "Temp seasonal SD across periods")
 
 ```{r}
 #| label: plot_heatmap_pH
-#| column: screen-inset-shaded
 #| layout-ncol: 3
+#| echo: false
 
 #pH heatmaps
 make_heatmap("pH_mean", title = "pH mean across periods")
@@ -427,8 +432,8 @@ make_heatmap("pH_seasonalSD",col, title = "pH seasonal SD across periods")
 
 ```{r}
 #| label: plot_heatmap_DO
-#| column: screen-inset-shaded
 #| layout-ncol: 3
+#| echo: false
 
 #DO heatmaps
 make_heatmap("DO_mean", title = "DO mean across periods")
@@ -445,7 +450,7 @@ Supplements heatmaps by looking at the correlation between historic and future t
 ```{r}
 #| label: regression_function
 
-make_regression <- function(sumstat, period1, period2,title){
+make_regression <- function(sumstat, period1, period2){
  
   plot_matrix <- sum %>%
    filter(period == period1 | period == period2) %>%
@@ -456,8 +461,7 @@ make_regression <- function(sumstat, period1, period2,title){
    stat_poly_line(colour = "black") +
    stat_poly_eq(use_label(c("eq", "R2"))) +
    geom_point(aes(colour = region), alpha = 0.7) +
-   theme_classic() +
-   ggtitle(title)
+   theme_classic()
  
 }
 ```
@@ -466,54 +470,74 @@ make_regression <- function(sumstat, period1, period2,title){
 
 ```{r}
 #| label: plot_regression_temp
-#| column: screen-inset-shaded
 #| layout-ncol: 2
+#| fig-cap: 
+#|    - "Historic vs. mid century temp mean"
+#|    - "Historic vs. end century temp mean"
+#|    - "Historic vs. mid century temp seasonal SD"
+#|    - "Historic vs. end century temp seasonal SD"
+#|    - "Historic vs. mid century temp event SD"
+#|    - "Historic vs. end century temp event SD"
+#| echo: false
 
 #temp
-make_regression("Temp_mean", "historic", "midcen", "Historic vs. mid century temp mean")
-make_regression("Temp_mean", "historic", "endcen", "Historic vs. end century temp mean")
-make_regression("T_seasonalSD", "historic", "midcen", "Historic vs. mid century temp seasonal SD")
-make_regression("T_seasonalSD", "historic", "endcen", "Historic vs. end century temp seasonal SD")
-make_regression("T_eventSD", "historic", "midcen", "Historic vs. mid century temp event SD")
-make_regression("T_eventSD", "historic", "endcen", "Historic vs. end century temp event SD")
-  
+make_regression("Temp_mean", "historic", "midcen")
+make_regression("Temp_mean", "historic", "endcen")
+make_regression("T_seasonalSD", "historic", "midcen")
+make_regression("T_seasonalSD", "historic", "endcen")
+make_regression("T_eventSD", "historic", "midcen")
+make_regression("T_eventSD", "historic", "endcen")
 ```
 
 #### **pH**
 
 ```{r}
-#| label: plot_regression_pH
-#| column: screen-inset-shaded
+#| label: plot_regression_pH_mean
+#| echo: false
 #| layout-ncol: 2
+#| fig-cap: 
+#|  - "Historic vs. midcen pH mean"
+#|  - "Historic vs. endcen pH mean"
+#|  - "Historic vs. midcen seasonal SD"
+#|  - "Historic vs. endcen seasonal SD"
+#|  - "Historic vs. midcen event SD"
+#|  - "Historic vs. endcen event SD" 
 
  #pH
-    make_regression("pH_mean", "historic", "midcen", "Historic vs. mid century pH mean")
-    make_regression("pH_mean", "historic", "endcen", "Historic vs. end century pH mean")
-    make_regression("pH_seasonalSD", "historic", "midcen", "Historic vs. mid century pH seasonal SD")
-    make_regression("pH_seasonalSD", "historic", "endcen", "Historic vs. end century pH seasonal SD")
-    make_regression("pH_eventSD", "historic", "midcen", "Historic vs. mid century pH event SD")
-    make_regression("pH_eventSD", "historic", "endcen", "Historic vs. end century pH event SD")
+make_regression("pH_mean", "historic", "midcen")
+make_regression("pH_mean", "historic", "endcen")
+make_regression("pH_seasonalSD", "historic", "midcen")
+make_regression("pH_seasonalSD", "historic", "endcen")
+make_regression("pH_eventSD", "historic", "midcen")
+make_regression("pH_eventSD", "historic", "endcen")
 ```
 
 #### **DO**
 
 ```{r}
-#| label: plot_regression_DO
-#| column: screen-inset-shaded
+#| label: plot_regression_DO_mean
+#| echo: false
 #| layout-ncol: 2
+#| fig-cap: 
+#|  - "Historic vs. midcen DO mean"
+#|  - "Historic vs. endcen DO mean"
+#|  - "Historic vs. midcen seasonal SD"
+#|  - "Historic vs. endcen seasonal SD"
+#|  - "Historic vs. midcen event SD"
+#|  - "Historic vs. endcen event SD"
 
 #DO
-    make_regression("DO_mean", "historic", "midcen", "Historic vs. mid century DO mean")
-    make_regression("DO_mean", "historic", "endcen", "Historic vs. end century DO mean")
-    make_regression("DO_seasonalSD", "historic", "midcen", "Historic vs. mid century DO seasonal SD")
-    make_regression("DO_seasonalSD", "historic", "endcen", "Historic vs. end century DO seasonal SD")
-    make_regression("DO_eventSD", "historic", "midcen", "Historic vs. mid century DO event SD")
-    make_regression("DO_eventSD", "historic", "endcen", "Historic vs. end century DO event SD")
+make_regression("DO_mean", "historic", "midcen")
+make_regression("DO_mean", "historic", "endcen")
+make_regression("DO_seasonalSD", "historic", "midcen")
+make_regression("DO_seasonalSD", "historic", "endcen")
+make_regression("DO_eventSD", "historic", "midcen")
+make_regression("DO_eventSD", "historic", "endcen")
 ```
 
 ## Anomalous pH/DO/temp Event Analysis
 
-Identify pH/DO/temp anomalous events. Events for pH are defined as 1+ days where pH \< 7.75, and events for DO are 1+ days where DO \< 4.6. Events for temp defined as 1+ days where daily temp exceeds historical climatology's temp for that month + 2\* historical climatology SD.
+Identify pH/DO/temp anomalous events. Events for pH are defined as 2+ days where pH \< 7.75, and events for DO are 2+ days where DO \< 4.6. Events for temp defined as 1+ days where daily temp exceeds historical climatology's temp for that month + 2\* historical climatology SD.
 
 For each [event]{.underline}, the following are calculated: 1) Duration of days, 2) Date event began, 3) Mean pH/DO/T during the event, 4) Intensity of the event (threshold - event mean), 5) Severity of the event (intensity\*duration).
 
@@ -558,6 +582,7 @@ pH_event_summary <- events %>%
          event_mean = mean(pH), #mean during the individual event 
          intensity = 7.75 - event_mean,
          severity = intensity*duration_days) %>%
+  filter(duration_days > 1) %>%
   ungroup() %>%
 
   #mpa summary (across periods)
@@ -581,11 +606,8 @@ pH_event_summary <- events %>%
 #now removing event-scale variables not needed to condense to mpa scale
 pH_mpa_summary <- pH_event_summary %>%
   select(-duration_days, -event_begin, -event_mean, -intensity, 
-         -severity, -is_pH_low,-pH_event, -julianday) %>%
-  distinct(period, File, .keep_all = TRUE) %>%
-  #renaming vars just for maps in next section
-  rename("Mean num of events in a year" = "meanannual_days_belowthresh",
-         "Mean pH during event"="meanannual_avg_pH_belowthresh")
+         -severity, -is_pH_low,-pH_event, -julianday, -annual_days_belowthresh, -annual_avg_ph_belowthresh) %>%
+  distinct(period, File, .keep_all = TRUE) 
 
 #used later
 pH_all_events <- left_join(events, pH_event_summary,
@@ -608,6 +630,7 @@ DO_event_summary <- events %>%
          event_mean = mean(DO), #mean during the individual event 
          intensity = 7.75 - event_mean,
          severity = intensity*duration_days) %>%
+    filter(duration_days > 1) %>%
   ungroup() %>%
 
   #mpa summary (across periods)
@@ -631,11 +654,8 @@ DO_event_summary <- events %>%
 #now removing event-scale variables not needed to condense to mpa scale
 DO_mpa_summary <- DO_event_summary %>% 
   select(-duration_days, -event_begin, -event_mean, -intensity, 
-         -severity, -is_DO_low, -DO_event, -julianday) %>%
-   distinct(File, period, .keep_all = TRUE) %>%
-  #renaming vars just for maps in next section
-  rename("Mean num of events in a year" = "meanannual_days_belowthresh",
-         "Mean DO during event"= "meanannual_avg_DO_belowthresh")
+         -severity, -is_DO_low, -DO_event, -julianday, -annual_days_belowthresh, -annual_avg_DO_belowthresh) %>%
+   distinct(File, period, .keep_all = TRUE) 
 
 #used later
 DO_all_events <- left_join(events, DO_event_summary,
@@ -668,6 +688,7 @@ temp_event_summary <- mpa_with_histclimsd %>%
          event_mean = mean(Temp),  
          intensity = Temp - (hist_T_clim + 2*hist_T_clim_sd),
          severity = intensity*duration_days) %>%
+    filter(duration_days > 1) %>%
   ungroup() %>%
 
   #mpa summary (across periods)
@@ -692,11 +713,8 @@ temp_event_summary <- mpa_with_histclimsd %>%
   #now removing event-scale variables not needed to condense to mpa scale
 temp_mpa_summary <- temp_event_summary %>% 
   select(-Temp,-duration_days, -event_begin, -event_mean, -intensity, 
-         -severity, -is_temp_high, -temp_event, -julianday) %>%
-  distinct(period, File, .keep_all = TRUE) %>%
-  #renaming vars just for maps in next section
-  rename("Mean num of events in a year" = "meanannual_days_abovethresh",
-         "Mean temperature during event"="meanannual_avg_temp_abovethresh")
+         -severity, -is_temp_high, -temp_event, -julianday, -annual_days_abovethresh, -annual_avg_temp_abovethresh) %>%
+  distinct(period, File, .keep_all = TRUE)
 
 #used later
 temp_all_events <- left_join(mpa, temp_event_summary,
@@ -716,141 +734,223 @@ Maps showing anomalous event summaries in CA, including average number days cros
 CA_shp <- st_read(here("./data/rawdata/shp/CA_Counties/CA_Counties_TIGER2016.shp"))
 
 
- make_anom_map <- function(mpa_summary_df, sumstat, periodt, title, 
-                           filename, palette = "YlOrRd"){
-    
-    anom_points <- st_as_sf((mpa_summary_df %>% filter(period == periodt)), 
-                            coords = c("degx","degy"))
+ make_anom_map <- function(mpa_summary_df, sumstat, periodt, 
+                          palette = "YlOrRd", diff = FALSE){
+  
+  #converting df to spatial data format
+  anom_points <- st_as_sf((mpa_summary_df %>% filter(period == periodt)), 
+                          coords = c("degx","degy"))
+  #creating period diff df: calculating diff btwn time points for given sumstat
+  period_diff <- temp_mpa_summary %>%
+                    pivot_wider(names_from = period,
+                                values_from = meanannual_days_abovethresh,
+                                id_cols = c(File, degx, degy)) %>%
+                    mutate(mid_hist_diff = midcen - historic,
+                           end_hist_diff = endcen - historic,
+                           end_mid_diff = endcen - midcen)
+  #converting period diff df to spatial data format
+  period_diff_anom_points <- st_as_sf(period_diff,coords = c("degx","degy"))
+  
+  #finding equal interval breaks based on all time periods
+  all_breaks <- classInt::classIntervals(mpa_summary_df[[sumstat]], 8, "equal")
+  all_diff_breaks <- pivot_longer(period_diff, c(mid_hist_diff,end_hist_diff,end_mid_diff))
+  all_diff_breaks <- classInt::classIntervals(all_diff_breaks$value, 10, "equal")
 
-    #finding equal interval breaks based on all time periods
-    all_breaks <- classInt::classIntervals(mpa_summary_df[[sumstat]], 
-                                           8, "equal")
-    
-    #map with equal breaks across periods
-   tm_shape(CA_shp) + #basemap
-      tm_fill(col = "#ccebc5") +
-      
-      tm_shape(anom_points) +
-      tm_dots(col = sumstat, palette = palette, size = 0.2, 
-              breaks = all_breaks[["brks"]]) +
-      
-      tm_layout(bg.color = "#a6cee3", 
-                main.title.position = "center",
-                main.title.size = 1.3,
-                main.title = title,
-                legend.title.size = 1,
-                legend.text.size = .8) 
-    
+   #if diff parameter is false: create regular maps of sumstat
+    if (diff == FALSE){
+      tm_shape(CA_shp) + #basemap
+        tm_fill(col = "#ccebc5") +
+        
+        tm_shape(anom_points) +
+        tm_dots(col = sumstat, palette = palette, size = 0.2, 
+                breaks = all_breaks[["brks"]]) +
+        
+        tm_layout(bg.color = "#a6cee3",
+                  legend.title.size = 1,
+                  legend.text.size = .8) 
 
- }
+  #if diff parameter is true: create 3 maps of diff between each time period
+   } else {
+     #mid-hist diff
+     mid_hist <- tm_shape(CA_shp) + #basemap
+       tm_fill(col = "#ccebc5") +
+       
+       tm_shape(period_diff_anom_points) +
+       tm_dots(col = "mid_hist_diff", palette = palette, size = 0.2, 
+               breaks = all_diff_breaks[["brks"]]) +
+       
+       tm_layout(bg.color = "#a6cee3",
+                 legend.title.size = 1,
+                 legend.text.size = .8) 
+     
+     #end-hist diff
+     end_hist <- tm_shape(CA_shp) + #basemap
+       tm_fill(col = "#ccebc5") +
+       
+       tm_shape(period_diff_anom_points) +
+       tm_dots(col = "end_hist_diff", palette = palette, size = 0.2, 
+               breaks = all_diff_breaks[["brks"]]) +
+       
+       tm_layout(bg.color = "#a6cee3",
+                 legend.title.size = 1,
+                 legend.text.size = .8)
+     
+     #end-mid diff
+      end_mid <- tm_shape(CA_shp) + #basemap
+       tm_fill(col = "#ccebc5") +
+       
+       tm_shape(period_diff_anom_points) +
+       tm_dots(col = "end_mid_diff", palette = palette, size = 0.2, 
+               breaks = all_diff_breaks[["brks"]]) +
+       
+       tm_layout(bg.color = "#a6cee3",
+                 legend.title.size = 1,
+                 legend.text.size = .8) 
+      
+      return(list(mid_hist = mid_hist, end_hist = end_hist, end_mid = end_mid))
+   }
+  }
  
 ```
 
-#### **Temp**
+#### **Heat events**
 
 ```{r}
 #| label: plot_anom_map_temp
-#| column: screen-inset-shaded
 #| layout-ncol: 3
+#| fig-cap: 
+#| - "Historic: Avg # days above threshold in a year"
+#| - "Midcen: Avg # days above threshold in a year"
+#| - "Endcen: Avg # days above threshold in a year"
+#| - "Historic: Mean temperature during event"
+#| - "Midcen: Mean temperature during event"
+#| - "Endcen: Mean temperature during event"
+#| column: screen-inset
+#| echo: false
+
 
 #TEMP-----------------------------------------------------
 #mean annual num events for all periods for temp 
-make_anom_map(temp_mpa_summary, sumstat = "Mean num of events in a year", 
-                periodt =  "historic", 
-                title = "Annual # of anomalous heat events in historic period",
-                filename = "temp_historic_annual_event.png")
-
-make_anom_map(temp_mpa_summary, sumstat = "Mean num of events in a year",
-              periodt = "midcen",
-              title = "Annual # of anomalous heat events in mid century period",
-              filename = "temp_midcen_annual_event.png") 
-
-make_anom_map(temp_mpa_summary, sumstat = "Mean num of events in a year",
-              periodt = "endcen",
-              title = "Annual # of anomalous heat events in end century period",
-              filename = "temp_endcen_annual_event.png")
+make_anom_map(temp_mpa_summary, sumstat = "meanannual_days_abovethresh",periodt =  "historic")
+make_anom_map(temp_mpa_summary, sumstat = "meanannual_days_abovethresh",periodt = "midcen") 
+make_anom_map(temp_mpa_summary, sumstat = "meanannual_days_abovethresh",periodt = "endcen")
 
 #mean temp during event for all periods
-make_anom_map(temp_mpa_summary, "Mean temperature during event", "historic", 
-              "Mean heat event temperature in historic period",
-              "temp_val_historic_event.png")
-
-make_anom_map(temp_mpa_summary, "Mean temperature during event","midcen",
-              "Mean heat event temperature in mid century period",
-              "temp_val_midcen_event.png") 
-
-make_anom_map(temp_mpa_summary, "Mean temperature during event",
-              "endcen","Mean heat event temperature in end century period",
-              "temp_val_endcen_event.png")
+make_anom_map(temp_mpa_summary, "meanannual_avg_temp_abovethresh", "historic")
+make_anom_map(temp_mpa_summary, "meanannual_avg_temp_abovethresh","midcen") 
+make_anom_map(temp_mpa_summary, "meanannual_avg_temp_abovethresh", "endcen")
 ```
 
-#### **pH**
+##### Difference in heat events: change between historical and future time periods
+
+```{r, echo=FALSE,results='hide',fig.keep='all'}
+#| label: plot_anom_map_temp_diff
+#| layout-ncol: 3
+#| column: screen-inset
+#| fig-cap: 
+#| - "Difference between midcen and historic avg days above threshold in a yr"
+#| - "Difference between endcen and historic avg days above threshold in a yr"
+#| - "Difference between endcen and midcen avg days above threshold in a yr"
+#| - "Difference between midcen and historic avg temp above threshold"
+#| - "Difference between endcen and historic avg temp above threshold"
+#| - "Difference between endcen and midcen avg temp above threshold"
+
+make_anom_map(temp_mpa_summary, sumstat = "meanannual_days_abovethresh",period = "historic",diff = TRUE)
+make_anom_map(temp_mpa_summary, "meanannual_avg_temp_abovethresh", period = "historic",diff = TRUE)
+
+```
+
+#### **pH events**
 
 ```{r}
 #| label: plot_anom_map_pH
-#| column: screen-inset-shaded
 #| layout-ncol: 3
+#| fig-cap: 
+#| - "Historic: Avg # days below threshold in a year"
+#| - "Midcen: Avg # days below threshold in a year"
+#| - "Endcen: Avg # days below threshold in a year"
+#| - "Historic: Mean pH during event"
+#| - "Midcen: Mean pH during event"
+#| - "Endcen: Mean pH during event"
+#| column: screen-inset
+#| echo: false
+
 
 #pH---------------------------------------------------------
-make_anom_map(pH_mpa_summary, "Mean num of events in a year", "historic",
-              "Annual # of anomalous pH events in historic period",
-              "pH_historic_annual_event.png")
-
-make_anom_map(pH_mpa_summary, "Mean num of events in a year","midcen",
-              "Annual # of anomalous pH events in mid century period",
-              "pH_midcen_annual_event.png") 
-
-make_anom_map(pH_mpa_summary, "Mean num of events in a year","endcen",
-              "Annual # of anomalous pH events in end century period",
-              "pH_endcen_annual_event.png")
+make_anom_map(pH_mpa_summary, "meanannual_days_belowthresh", "historic")
+make_anom_map(pH_mpa_summary, "meanannual_days_belowthresh","midcen") 
+make_anom_map(pH_mpa_summary, "meanannual_days_belowthresh","endcen")
 
 #mean pH during event for all periods 
-make_anom_map(pH_mpa_summary, "Mean pH during event", "historic", 
-              "Mean event pH in historic period","pH_val_historic_event.png",
-              palette = "-YlOrRd")
-
-make_anom_map(pH_mpa_summary, "Mean pH during event","midcen",
-              "Mean event pH in mid century period","pH_val_midcen_event.png",
-              palette = "-YlOrRd") 
-
-make_anom_map(pH_mpa_summary, "Mean pH during event","endcen",
-              "Mean event pH in end century period","pH_val_endcen_event.png",
-              palette = "-YlOrRd")
+make_anom_map(pH_mpa_summary, "meanannual_avg_pH_belowthresh", "historic",palette = "-YlOrRd")
+make_anom_map(pH_mpa_summary, "meanannual_avg_pH_belowthresh","midcen",palette = "-YlOrRd") 
+make_anom_map(pH_mpa_summary, "meanannual_avg_pH_belowthresh","endcen",palette = "-YlOrRd")
 
 ```
 
-#### **DO**
+##### Difference in pH events: change between historical and future time periods
+
+```{r, echo=FALSE,results='hide',fig.keep='all'}
+#| label: plot_anom_map_pH_diff
+#| layout-ncol: 3
+#| column: screen-inset
+#| fig-cap: 
+#| - "Difference between midcen and historic avg days below threshold in a yr"
+#| - "Difference between endcen and historic avg days below threshold in a yr"
+#| - "Difference between endcen and midcen avg days below threshold in a yr"
+#| - "Difference between midcen and historic avg pH below threshold"
+#| - "Difference between endcen and historic avg pH below threshold"
+#| - "Difference between endcen and midcen avg pH below threshold"
+
+
+make_anom_map(pH_mpa_summary, sumstat = "meanannual_days_belowthresh",period = "historic",diff = TRUE)
+make_anom_map(pH_mpa_summary, "meanannual_avg_pH_belowthresh", period = "historic",diff = TRUE)
+```
+
+#### **DO events**
 
 ```{r}
 #| label: plot_anom_map_DO
-#| column: screen-inset-shaded
 #| layout-ncol: 3
+#| fig-cap: 
+#| - "Historic: Avg # days below threshold in a year"
+#| - "Midcen: Avg # days below threshold in a year"
+#| - "Endcen: Avg # days below threshold in a year"
+#| - "Historic: Mean pH during event"
+#| - "Midcen: Mean DO during event"
+#| - "Endcen: Mean DO during event"
+#| column: screen-inset
+#| echo: false
+
 
 #DO---------------------------------------------------------
-make_anom_map(DO_mpa_summary, "Mean num of events in a year", "historic",
-              "Annual # of anomalous DO events in historic period",
-              "DO_historic_annual_event.png")
-
-make_anom_map(DO_mpa_summary, "Mean num of events in a year","midcen",
-              "Annual # of anomalous DO events in mid century period",
-              "DO_midcen_annual_event.png") 
-
-make_anom_map(DO_mpa_summary, "Mean num of events in a year","endcen",
-              "Annual # of anomalous DO events in end century period",
-              "DO_endcen_annual_event.png")
+make_anom_map(DO_mpa_summary, "meanannual_days_belowthresh", "historic")
+make_anom_map(DO_mpa_summary, "meanannual_days_belowthresh","midcen") 
+make_anom_map(DO_mpa_summary, "meanannual_days_belowthresh","endcen")
 
 #mean DO during event for all periods 
-make_anom_map(DO_mpa_summary, "Mean DO during event", "historic", 
-              "Mean event DO in historic period","DO_val_historic_event.png",
-              palette = "-YlOrRd")
+make_anom_map(DO_mpa_summary, "meanannual_avg_DO_belowthresh", "historic",palette = "-YlOrRd")
+make_anom_map(DO_mpa_summary, "meanannual_avg_DO_belowthresh","midcen",palette = "-YlOrRd") 
+make_anom_map(DO_mpa_summary, "meanannual_avg_DO_belowthresh","endcen",palette = "-YlOrRd")
+```
 
-make_anom_map(DO_mpa_summary, "Mean DO during event","midcen",
-              "Mean event DO in mid century period","DO_val_midcen_event.png",
-              palette = "-YlOrRd") 
+##### Difference in DO events: change between historical and future time periods
 
-make_anom_map(DO_mpa_summary, "Mean DO during event","endcen",
-              "Mean event DO in end century period","DO_val_endcen_event.png",
-              palette = "-YlOrRd")
+```{r, echo=FALSE,results='hide',fig.keep='all'}
+#| label: plot_anom_map_DO_diff
+#| layout-ncol: 3
+#| column: screen-inset
+#| fig-cap: 
+#| - "Difference between midcen and historic avg days below threshold in a yr"
+#| - "Difference between endcen and historic avg days below threshold in a yr"
+#| - "Difference between endcen and midcen avg days below threshold in a yr"
+#| - "Difference between midcen and historic avg DO below threshold"
+#| - "Difference between endcen and historic avg DO below threshold"
+#| - "Difference between endcen and midcen avg DO below threshold"
+
+
+make_anom_map(DO_mpa_summary, sumstat = "meanannual_days_belowthresh",period = "historic",diff = TRUE)
+make_anom_map(DO_mpa_summary, "meanannual_avg_DO_belowthresh", period = "historic",diff = TRUE)
 ```
 
 ## Severity, Intensity, Duration
