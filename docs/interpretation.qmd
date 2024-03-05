@@ -29,9 +29,9 @@ A regression analysis, looking at correlations between historical and future-tim
 This analysis shows that future variation in temperature due to the seasonal cycle is not predicted very well by present seasonal variation in temperature as the correlation between time-periods breaks down by the end-of-century.
 
 ::: {layout-ncol="2"}
-![Historic vs. mid-century](mpaexposure_files/figure-html/plot_regression_temp-3.png){#fig-regression-1}
+![Historic vs. mid-century temp seasonal SD](mpaexposure_files/figure-html/plot_regression_temp-3.png){#fig-regression-1}
 
-![Historic vs. end-century](mpaexposure_files/figure-html/plot_regression_temp-4.png){#fig-regression-2}
+![Historic vs. end-century temp seasonal SD](mpaexposure_files/figure-html/plot_regression_temp-4.png){#fig-regression-2}
 :::
 
 Other summary statistics for temperature (mean and event-based standard deviation) can be predicted in future time periods fairly well based on historical values. The same is true for means and event/seasonal SD for pH and DO.
@@ -44,13 +44,11 @@ Other summary statistics for temperature (mean and event-based standard deviatio
 >
 >     -   temperature seasonal variation either breaks down, or follows new patterns by the end-of-century
 
-#### *Considering a different metric of exposure via an event-based analysis: Will future events follow similar spatial patterns in the future compared to historical patterns?*
+#### *Considering a different metric of exposure via an event-based analysis: Will future events follow similar spatial patterns as historic events?* 
 
 Since organismal vulnerability to climate change can differ (i.e. mean conditions may be stressful for some, whereas frequent anomalous events may be stressful to others) **we characterize exposure of MPAs to future climate change representing various measures of vulnerability**. Understanding future patterns of warming and acidification will inform our expectations for geographic variation in MPA efficacy and resilience to environmental change.
 
 Here we explore spatio-temporal patterns in the average number of stressful events in a year.
-
-\[figs\]
 
 <div>
 
