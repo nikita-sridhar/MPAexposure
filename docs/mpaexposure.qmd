@@ -554,7 +554,7 @@ label_events <- function(is_event) {
   rep(labels, event_rle$lengths)
 }
 
-#all event categorization for pH and DO
+#all event categorization for pH and DO 
 events <- mpa %>%
   group_by(period) %>%
   select(File, Date, Year,NAME, pH, DO, period, degx, degy, julianday) %>%
@@ -1210,6 +1210,55 @@ DO_sev_int_dur_regional("historic", "channel")
 DO_sev_int_dur_regional("midcen", "channel")
 DO_sev_int_dur_regional("endcen", "channel")
 
+```
+
+## Multiple stressor analysis
+
+Frequency an MPA encounters multiple events. Note: an event is 1+ days, whereas previously it was defined as 2+ days. Thus, total number of possible events for one stressor in a year is 365.
+
+```{r}
+multi_event <- function(periodt,regionn, num_stressors){
+
+all_events <- events %>%
+  merge(temp_event_summary, by = c("File", "NAME", "Date","Year", "degx", "degy","period","julianday"), suffixes = c("","temp")) %>%
+  merge(sum[,c("File","region")], by = c("File")) %>%
+  mutate(is_pH_DO_and_T_low = ifelse(is_pH_low == TRUE & 
+                                     is_DO_low == TRUE &
+                                     is_temp_high == TRUE, TRUE, FALSE),
+         pH_DO_and_T_event = label_events(is_pH_DO_and_T_low))
+
+prob_of_multi_event <- all_events %>%
+  group_by(julianday, period, Year, region) %>%
+  summarise(pH_DO_prob = mean(n_distinct(pH_and_DO_event), na.rm=TRUE)/n_distinct(File),
+            pH_DO_T_prob = (mean(n_distinct(pH_and_DO_event), na.rm=TRUE) + 
+                              mean(n_distinct(pH_DO_and_T_event), na.rm=TRUE))/n_distinct(File))
+
+ if (num_stressors == "two"){
+filter(period == periodt, region == regionn) %>%
+  ggplot(aes(julianday, Year, fill = pH_DO_prob)) +
+  geom_tile() +
+  scale_fill_distiller(palette = "YlOrRd", direction = 1, #change palette
+                        na.value = "skyblue") +
+  theme_classic() +
+  ggtitle(paste("Frequency of MPAs with pH and DO events","in", periodt, "period", "in", regionn)) 
+    
+  } else {
+filter(period == periodt, region == regionn) %>%
+  ggplot(aes(julianday, Year, fill = pH_DO_T_prob)) +
+  geom_tile() +
+  scale_fill_distiller(palette = "YlOrRd", direction = 1, #change palette
+                        na.value = "skyblue") +
+  theme_classic() +
+  ggtitle(paste("Frequency of MPAs with pH, DO, and T events","in", periodt, "period","in", regionn)) 
+    
+  }
+}
+
+testing <- all_events %>% group_by(julianday, period, Year, region) %>%
+     mutate(num_pH_event = n_distinct(pH_DO_and_T_event), 
+            num_file = n_distinct(File))
+
+multi_event("historic","centralca","pH_DO_prob")
 ```
 
 ## Time series to put in context
