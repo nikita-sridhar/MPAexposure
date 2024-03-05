@@ -1053,8 +1053,10 @@ DO_sev_int_dur_regional <- function(periodt, regionn){
 
 ```{r}
 #| label: plot_temp_sev_int_dur_centralCA
-#| column: screen-inset-shaded
 #| layout-ncol: 3
+#| echo: false
+#| column: screen-inset
+
 
 #central CA - all sites within region
 temp_sev_int_dur_regional("historic", "centralca")
@@ -1067,8 +1069,9 @@ temp_sev_int_dur_regional("endcen", "centralca")
 
 ```{r}
 #| label: plot_temp_sev_int_dur_norCA
-#| column: screen-inset-shaded
 #| layout-ncol: 3
+#| echo: false
+#| column: screen-inset
 
 temp_sev_int_dur_regional("historic", "norca")
 temp_sev_int_dur_regional("midcen", "norca")
@@ -1079,8 +1082,9 @@ temp_sev_int_dur_regional("endcen", "norca")
 
 ```{r}
 #| label: plot_temp_sev_int_dur_southernCA
-#| column: screen-inset-shaded
 #| layout-ncol: 3
+#| echo: false
+#| column: screen-inset
 
 temp_sev_int_dur_regional("historic", "socal")
 temp_sev_int_dur_regional("midcen", "socal")
@@ -1091,8 +1095,9 @@ temp_sev_int_dur_regional("endcen", "socal")
 ##### Channel Islands:
 
 ```{r}
-#| column: screen-inset-shaded
 #| layout-ncol: 3
+#| echo: false
+#| column: screen-inset
 
 temp_sev_int_dur_regional("historic", "channel")
 temp_sev_int_dur_regional("midcen", "channel")
@@ -1104,8 +1109,9 @@ temp_sev_int_dur_regional("endcen", "channel")
 ##### Central CA:
 
 ```{r}
-#| column: screen-inset-shaded
 #| layout-ncol: 3
+#| echo: false
+#| column: screen-inset
 
 pH_sev_int_dur_regional("historic", "centralca")
 pH_sev_int_dur_regional("midcen", "centralca")
@@ -1116,8 +1122,9 @@ pH_sev_int_dur_regional("endcen", "centralca")
 ##### Northern CA:
 
 ```{r}
-#| column: screen-inset-shaded
 #| layout-ncol: 3
+#| echo: false
+#| column: screen-inset
 
 pH_sev_int_dur_regional("historic", "norca")
 pH_sev_int_dur_regional("midcen", "norca")
@@ -1128,7 +1135,8 @@ pH_sev_int_dur_regional("endcen", "norca")
 ##### Southern CA :
 
 ```{r}
-#| column: screen-inset-shaded
+#| echo: false
+#| column: screen-inset
 #| layout-ncol: 3
 
 #southern CA
@@ -1140,7 +1148,8 @@ pH_sev_int_dur_regional("endcen", "socal")
 ##### Channel Islands:
 
 ```{r}
-#| column: screen-inset-shaded
+#| echo: false
+#| column: screen-inset
 #| layout-ncol: 3
 
 pH_sev_int_dur_regional("historic", "channel")
@@ -1153,7 +1162,8 @@ pH_sev_int_dur_regional("endcen", "channel")
 ##### Central CA:
 
 ```{r}
-#| column: screen-inset-shaded
+#| echo: false
+#| column: screen-inset
 #| layout-ncol: 3
 
 #central CA
@@ -1165,7 +1175,8 @@ DO_sev_int_dur_regional("endcen", "centralca")
 ##### Northern CA:
 
 ```{r}
-#| column: screen-inset-shaded
+#| echo: false
+#| column: screen-inset
 #| layout-ncol: 3
 
 #northern CA
@@ -1177,7 +1188,8 @@ DO_sev_int_dur_regional("endcen", "norca")
 ##### Southern CA :
 
 ```{r}
-#| column: screen-inset-shaded
+#| echo: false
+#| column: screen-inset
 #| layout-ncol: 3
 
 #southern CA
@@ -1189,7 +1201,8 @@ DO_sev_int_dur_regional("endcen", "socal")
 ##### Channel Islands:
 
 ```{r}
-#| column: screen-inset-shaded
+#| echo: false
+#| column: screen-inset
 #| layout-ncol: 3
 
 #channel
