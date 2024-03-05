@@ -1220,45 +1220,68 @@ Frequency an MPA encounters multiple events. Note: an event is 1+ days, whereas 
 multi_event <- function(periodt,regionn, num_stressors){
 
 all_events <- events %>%
-  merge(temp_event_summary, by = c("File", "NAME", "Date","Year", "degx", "degy","period","julianday"), suffixes = c("","temp")) %>%
+  merge(temp_event_summary, 
+        by = c("File", "NAME", "Date","Year", "degx", "degy","period","julianday")) %>%  
   merge(sum[,c("File","region")], by = c("File")) %>%
   mutate(is_pH_DO_and_T_low = ifelse(is_pH_low == TRUE & 
                                      is_DO_low == TRUE &
                                      is_temp_high == TRUE, TRUE, FALSE),
          pH_DO_and_T_event = label_events(is_pH_DO_and_T_low))
 
-prob_of_multi_event <- all_events %>%
+#finding num of MPAs within each region
+num_mpa <- all_events %>%
+  group_by(period, region) %>%
+  mutate(num_mpa = n_distinct(File)) %>%
+  ungroup() %>%
+  distinct(region, num_mpa) 
+
+prob_of_pH_DO_event <- all_events %>%
+  merge(num_mpa, by = "region") %>%
   group_by(julianday, period, Year, region) %>%
-  summarise(pH_DO_prob = mean(n_distinct(pH_and_DO_event), na.rm=TRUE)/n_distinct(File),
-            pH_DO_T_prob = (mean(n_distinct(pH_and_DO_event), na.rm=TRUE) + 
-                              mean(n_distinct(pH_DO_and_T_event), na.rm=TRUE))/n_distinct(File))
+  filter(is_pH_and_DO_low == TRUE) %>%
+  reframe(pH_DO_prob = mean(n_distinct(File), na.rm=TRUE)/num_mpa) %>%
+  distinct(julianday, period, Year, region, pH_DO_prob) %>%
+  ungroup()
+
+prob_of_pH_DO_T_event <- all_events %>%
+  merge(num_mpa, by = "region") %>%
+  group_by(julianday, period, Year, region) %>%
+  filter(is_pH_DO_and_T_low == TRUE) %>%
+  reframe(pH_DO_T_prob = mean(n_distinct(File), na.rm=TRUE)/num_mpa) %>%
+  distinct(julianday, period, Year, region, pH_DO_T_prob) %>%
+  ungroup()
+          
 
  if (num_stressors == "two"){
-filter(period == periodt, region == regionn) %>%
+
+  prob_of_pH_DO_event %>% 
+  filter(period == periodt, region == regionn) %>%
   ggplot(aes(julianday, Year, fill = pH_DO_prob)) +
   geom_tile() +
   scale_fill_distiller(palette = "YlOrRd", direction = 1, #change palette
                         na.value = "skyblue") +
   theme_classic() +
-  ggtitle(paste("Frequency of MPAs with pH and DO events","in", periodt, "period", "in", regionn)) 
+  ggtitle(paste("Frequency of MPAs with pH and DO events","in", periodt, "period", "in", regionn)) +
+  theme(panel.background = element_rect(fill = "skyblue"))
     
   } else {
-filter(period == periodt, region == regionn) %>%
+
+  prob_of_pH_DO_T_event %>%
+  filter(period == periodt, region == regionn) %>%
   ggplot(aes(julianday, Year, fill = pH_DO_T_prob)) +
   geom_tile() +
   scale_fill_distiller(palette = "YlOrRd", direction = 1, #change palette
                         na.value = "skyblue") +
   theme_classic() +
-  ggtitle(paste("Frequency of MPAs with pH, DO, and T events","in", periodt, "period","in", regionn)) 
+  ggtitle(paste("Frequency of MPAs with pH, DO, and T events","in", periodt, "period","in", regionn)) +
+  theme(panel.background = element_rect(fill = "skyblue"))
     
   }
 }
 
-testing <- all_events %>% group_by(julianday, period, Year, region) %>%
-     mutate(num_pH_event = n_distinct(pH_DO_and_T_event), 
-            num_file = n_distinct(File))
-
-multi_event("historic","centralca","pH_DO_prob")
+multi_event("historic","centralca","two")
+multi_event("midcen","centralca","two")
+multi_event("endcen","centralca","two")
 ```
 
 ## Time series to put in context
