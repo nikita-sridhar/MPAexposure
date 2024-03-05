@@ -1279,9 +1279,66 @@ prob_of_pH_DO_T_event <- all_events %>%
   }
 }
 
+```
+
+#### Central CA
+
+```{r}
+#| echo: false
+#| layout-ncol: 3
+
 multi_event("historic","centralca","two")
 multi_event("midcen","centralca","two")
 multi_event("endcen","centralca","two")
+
+multi_event("historic","centralca","three")
+multi_event("midcen","centralca","three")
+multi_event("endcen","centralca","three")
+```
+
+#### Northern CA
+
+```{r}
+#| echo: false
+#| layout-ncol: 3
+
+multi_event("historic","norca","two")
+multi_event("midcen","norca","two")
+multi_event("endcen","norca","two")
+
+multi_event("historic","norca","three")
+multi_event("midcen","norca","three")
+multi_event("endcen","norca","three")
+```
+
+Southern CA
+
+```{r}
+#| echo: false
+#| layout-ncol: 3
+
+multi_event("historic","socal","two")
+multi_event("midcen","socal","two")
+multi_event("endcen","socal","two")
+
+multi_event("historic","socal","three")
+multi_event("midcen","socal","three")
+multi_event("endcen","socal","three")
+```
+
+Channel Islands
+
+```{r}
+#| echo: false
+#| layout-ncol: 3
+
+multi_event("historic","channel","two")
+multi_event("midcen","channel","two")
+multi_event("endcen","channel","two")
+
+multi_event("historic","channel","three")
+multi_event("midcen","channel","three")
+multi_event("endcen","channel","three")
 ```
 
 ## Time series to put in context
