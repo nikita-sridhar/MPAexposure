@@ -977,6 +977,23 @@ temp_sev_int_dur <- function(periodt, site){
     
 }
 
+temp_sev_int_dur_regional <- function(periodt, regionn){
+  
+  temp_all_events %>%
+    #this find mean intensity of a given julian day from all MPAs in a region
+    group_by(period, region, Year, julianday) %>%
+    summarise(mean_intensity = mean(intensity, na.rm=TRUE)) %>%
+  
+    filter(period == periodt, region == regionn) %>%
+    ggplot(aes(julianday, Year, fill = mean_intensity)) +
+    geom_tile() +
+    scale_fill_distiller(palette = "YlOrRd", direction = 1, 
+                         na.value = "skyblue") +
+    theme_classic() +
+    ggtitle(paste("Mean intensity of heat events in", regionn, "during", periodt, "period")) 
+    
+}
+
 #pH:
 pH_sev_int_dur <- function(periodt, site){
   
@@ -990,6 +1007,24 @@ pH_sev_int_dur <- function(periodt, site){
     ggtitle(paste(periodt, "pH events at", site)) 
     
 
+}
+
+pH_sev_int_dur_regional <- function(periodt, regionn){
+  
+  pH_all_events %>%
+    merge(sum[,c("File","region")], by = c("File")) %>% #to get the region
+    #this find mean intensity of a given julian day from all MPAs in a region
+    group_by(period, region, Year, julianday) %>%
+    summarise(mean_intensity = mean(intensity, na.rm=TRUE)) %>%
+  
+    filter(period == periodt, region == regionn) %>%
+    ggplot(aes(julianday, Year, fill = mean_intensity)) +
+    geom_tile() +
+    scale_fill_distiller(palette = "YlOrRd", direction = 1, 
+                         na.value = "skyblue") +
+    theme_classic() +
+    ggtitle(paste("Mean intensity of pH events in", regionn, "during", periodt, "period")) 
+    
 }
 
 #DO
@@ -1006,6 +1041,24 @@ DO_sev_int_dur <- function(periodt, site){
     
 
 }
+
+DO_sev_int_dur_regional <- function(periodt, regionn){
+  
+  DO_all_events %>%
+    merge(sum[,c("File","region")], by = c("File")) %>% #to get the region
+    #this find mean intensity of a given julian day from all MPAs in a region
+    group_by(period, region, Year, julianday) %>%
+    summarise(mean_intensity = mean(intensity, na.rm=TRUE)) %>%
+  
+    filter(period == periodt, region == regionn) %>%
+    ggplot(aes(julianday, Year, fill = mean_intensity)) +
+    geom_tile() +
+    scale_fill_distiller(palette = "YlOrRd", direction = 1, 
+                         na.value = "skyblue") +
+    theme_classic() +
+    ggtitle(paste("Mean intensity of DO events in", regionn, "during", periodt, "period")) 
+    
+}
 ```
 
 #### Temp
@@ -1016,12 +1069,12 @@ DO_sev_int_dur <- function(periodt, site){
 #| label: plot_temp_sev_int_dur_centralCA
 #| column: screen-inset-shaded
 #| layout-ncol: 3
-  
-#central CA
-temp_sev_int_dur("historic", "Ano Nuevo SMR")
-temp_sev_int_dur("midcen", "Ano Nuevo SMR")
-temp_sev_int_dur("endcen", "Ano Nuevo SMR")
-  
+
+#central CA - all sites within region
+temp_sev_int_dur_regional("historic", "centralca")
+temp_sev_int_dur_regional("midcen", "centralca")
+temp_sev_int_dur_regional("endcen", "centralca")
+
 ```
 
 ##### Northern CA:
@@ -1031,10 +1084,9 @@ temp_sev_int_dur("endcen", "Ano Nuevo SMR")
 #| column: screen-inset-shaded
 #| layout-ncol: 3
 
-#northern CA
-temp_sev_int_dur("historic", "Point Arena SMR")
-temp_sev_int_dur("midcen", "Point Arena SMR")
-temp_sev_int_dur("endcen", "Point Arena SMR")
+temp_sev_int_dur_regional("historic", "norca")
+temp_sev_int_dur_regional("midcen", "norca")
+temp_sev_int_dur_regional("endcen", "norca")
 ```
 
 ##### Southern CA :
@@ -1044,10 +1096,9 @@ temp_sev_int_dur("endcen", "Point Arena SMR")
 #| column: screen-inset-shaded
 #| layout-ncol: 3
 
-#southern CA
-temp_sev_int_dur("historic", "South La Jolla SMR")
-temp_sev_int_dur("midcen", "South La Jolla SMR")
-temp_sev_int_dur("endcen", "South La Jolla SMR")
+temp_sev_int_dur_regional("historic", "socal")
+temp_sev_int_dur_regional("midcen", "socal")
+temp_sev_int_dur_regional("endcen", "socal")
 
 ```
 
@@ -1057,10 +1108,9 @@ temp_sev_int_dur("endcen", "South La Jolla SMR")
 #| column: screen-inset-shaded
 #| layout-ncol: 3
 
-#channel
-temp_sev_int_dur("historic", "Anacapa Island FMR")
-temp_sev_int_dur("midcen", "Anacapa Island FMR")
-temp_sev_int_dur("endcen", "Anacapa Island FMR")
+temp_sev_int_dur_regional("historic", "channel")
+temp_sev_int_dur_regional("midcen", "channel")
+temp_sev_int_dur_regional("endcen", "channel")
 ```
 
 #### pH
@@ -1071,10 +1121,10 @@ temp_sev_int_dur("endcen", "Anacapa Island FMR")
 #| column: screen-inset-shaded
 #| layout-ncol: 3
 
-#central CA
-pH_sev_int_dur("historic", "Ano Nuevo SMR")
-pH_sev_int_dur("midcen", "Ano Nuevo SMR")
-pH_sev_int_dur("endcen", "Ano Nuevo SMR")
+pH_sev_int_dur_regional("historic", "centralca")
+pH_sev_int_dur_regional("midcen", "centralca")
+pH_sev_int_dur_regional("endcen", "centralca")
+
 ```
 
 ##### Northern CA:
@@ -1083,10 +1133,10 @@ pH_sev_int_dur("endcen", "Ano Nuevo SMR")
 #| column: screen-inset-shaded
 #| layout-ncol: 3
 
-#northern CA
-pH_sev_int_dur("historic", "Point Arena SMR")
-pH_sev_int_dur("midcen", "Point Arena SMR")
-pH_sev_int_dur("endcen", "Point Arena SMR")
+pH_sev_int_dur_regional("historic", "norca")
+pH_sev_int_dur_regional("midcen", "norca")
+pH_sev_int_dur_regional("endcen", "norca")
+
 ```
 
 ##### Southern CA :
@@ -1096,9 +1146,9 @@ pH_sev_int_dur("endcen", "Point Arena SMR")
 #| layout-ncol: 3
 
 #southern CA
-pH_sev_int_dur("historic", "South La Jolla SMR")
-pH_sev_int_dur("midcen", "South La Jolla SMR")
-pH_sev_int_dur("endcen", "South La Jolla SMR")
+pH_sev_int_dur_regional("historic", "socal")
+pH_sev_int_dur_regional("midcen", "socal")
+pH_sev_int_dur_regional("endcen", "socal")
 ```
 
 ##### Channel Islands:
@@ -1107,10 +1157,9 @@ pH_sev_int_dur("endcen", "South La Jolla SMR")
 #| column: screen-inset-shaded
 #| layout-ncol: 3
 
-#channel
-pH_sev_int_dur("historic", "Anacapa Island FMR")
-pH_sev_int_dur("midcen", "Anacapa Island FMR")
-pH_sev_int_dur("endcen", "Anacapa Island FMR")
+pH_sev_int_dur_regional("historic", "channel")
+pH_sev_int_dur_regional("midcen", "channel")
+pH_sev_int_dur_regional("endcen", "channel")
 ```
 
 #### DO
@@ -1122,9 +1171,9 @@ pH_sev_int_dur("endcen", "Anacapa Island FMR")
 #| layout-ncol: 3
 
 #central CA
-DO_sev_int_dur("historic", "Ano Nuevo SMR")
-DO_sev_int_dur("midcen", "Ano Nuevo SMR")
-DO_sev_int_dur("endcen", "Ano Nuevo SMR")
+DO_sev_int_dur_regional("historic", "centralca")
+DO_sev_int_dur_regional("midcen", "centralca")
+DO_sev_int_dur_regional("endcen", "centralca")
 ```
 
 ##### Northern CA:
@@ -1134,9 +1183,9 @@ DO_sev_int_dur("endcen", "Ano Nuevo SMR")
 #| layout-ncol: 3
 
 #northern CA
-DO_sev_int_dur("historic", "Point Arena SMR")
-DO_sev_int_dur("midcen", "Point Arena SMR")
-DO_sev_int_dur("endcen", "Point Arena SMR")
+DO_sev_int_dur_regional("historic", "norca")
+DO_sev_int_dur_regional("midcen", "norca")
+DO_sev_int_dur_regional("endcen", "norca")
 ```
 
 ##### Southern CA :
@@ -1146,9 +1195,9 @@ DO_sev_int_dur("endcen", "Point Arena SMR")
 #| layout-ncol: 3
 
 #southern CA
-DO_sev_int_dur("historic", "South La Jolla SMR")
-DO_sev_int_dur("midcen", "South La Jolla SMR")
-DO_sev_int_dur("endcen", "South La Jolla SMR")
+DO_sev_int_dur_regional("historic", "socal")
+DO_sev_int_dur_regional("midcen", "socal")
+DO_sev_int_dur_regional("endcen", "socal")
 ```
 
 ##### Channel Islands:
@@ -1158,9 +1207,9 @@ DO_sev_int_dur("endcen", "South La Jolla SMR")
 #| layout-ncol: 3
 
 #channel
-DO_sev_int_dur("historic", "Anacapa Island FMR")
-DO_sev_int_dur("midcen", "Anacapa Island FMR")
-DO_sev_int_dur("endcen", "Anacapa Island FMR")
+DO_sev_int_dur_regional("historic", "channel")
+DO_sev_int_dur_regional("midcen", "channel")
+DO_sev_int_dur_regional("endcen", "channel")
 
 ```
 
