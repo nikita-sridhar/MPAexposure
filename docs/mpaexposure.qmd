@@ -851,12 +851,8 @@ make_anom_map(temp_mpa_summary, "meanannual_avg_temp_abovethresh", "endcen")
 #| - "Difference between midcen and historic avg days above threshold in a yr"
 #| - "Difference between endcen and historic avg days above threshold in a yr"
 #| - "Difference between endcen and midcen avg days above threshold in a yr"
-#| - "Difference between midcen and historic avg temp above threshold"
-#| - "Difference between endcen and historic avg temp above threshold"
-#| - "Difference between endcen and midcen avg temp above threshold"
 
 make_anom_map(temp_mpa_summary, sumstat = "meanannual_days_abovethresh",period = "historic",diff = TRUE)
-make_anom_map(temp_mpa_summary, "meanannual_avg_temp_abovethresh", period = "historic",diff = TRUE)
 
 ```
 
@@ -898,13 +894,8 @@ make_anom_map(pH_mpa_summary, "meanannual_avg_pH_belowthresh","endcen",palette =
 #| - "Difference between midcen and historic avg days below threshold in a yr"
 #| - "Difference between endcen and historic avg days below threshold in a yr"
 #| - "Difference between endcen and midcen avg days below threshold in a yr"
-#| - "Difference between midcen and historic avg pH below threshold"
-#| - "Difference between endcen and historic avg pH below threshold"
-#| - "Difference between endcen and midcen avg pH below threshold"
-
 
 make_anom_map(pH_mpa_summary, sumstat = "meanannual_days_belowthresh",period = "historic",diff = TRUE)
-make_anom_map(pH_mpa_summary, "meanannual_avg_pH_belowthresh", period = "historic",diff = TRUE)
 ```
 
 #### **DO events**
@@ -944,13 +935,8 @@ make_anom_map(DO_mpa_summary, "meanannual_avg_DO_belowthresh","endcen",palette =
 #| - "Difference between midcen and historic avg days below threshold in a yr"
 #| - "Difference between endcen and historic avg days below threshold in a yr"
 #| - "Difference between endcen and midcen avg days below threshold in a yr"
-#| - "Difference between midcen and historic avg DO below threshold"
-#| - "Difference between endcen and historic avg DO below threshold"
-#| - "Difference between endcen and midcen avg DO below threshold"
-
 
 make_anom_map(DO_mpa_summary, sumstat = "meanannual_days_belowthresh",period = "historic",diff = TRUE)
-make_anom_map(DO_mpa_summary, "meanannual_avg_DO_belowthresh", period = "historic",diff = TRUE)
 ```
 
 ## Severity, Intensity, Duration
