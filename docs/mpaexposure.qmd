@@ -1217,16 +1217,17 @@ DO_sev_int_dur_regional("endcen", "channel")
 Frequency an MPA encounters multiple events. Note: an event is 1+ days, whereas previously it was defined as 2+ days. Thus, total number of possible events for one stressor in a year is 365.
 
 ```{r}
-multi_event <- function(periodt,regionn, num_stressors){
+multi_event <- function(periodt,regionn){
 
 all_events <- events %>%
   merge(temp_event_summary, 
         by = c("File", "NAME", "Date","Year", "degx", "degy","period","julianday")) %>%  
   merge(sum[,c("File","region")], by = c("File")) %>%
-  mutate(is_pH_DO_and_T_low = ifelse(is_pH_low == TRUE & 
-                                     is_DO_low == TRUE &
-                                     is_temp_high == TRUE, TRUE, FALSE),
-         pH_DO_and_T_event = label_events(is_pH_DO_and_T_low))
+  mutate(multi_stressor = case_when(is_pH_low == TRUE & is_DO_low == TRUE ~ TRUE,
+                                    is_pH_low == TRUE & is_temp_high == TRUE ~ TRUE,
+                                    is_DO_low == TRUE & is_temp_high == TRUE ~ TRUE,
+                                    is_pH_low == TRUE & is_DO_low & is_temp_high == TRUE ~ TRUE)) 
+
 
 #finding num of MPAs within each region
 num_mpa <- all_events %>%
@@ -1235,48 +1236,23 @@ num_mpa <- all_events %>%
   ungroup() %>%
   distinct(region, num_mpa) 
 
-prob_of_pH_DO_event <- all_events %>%
+#plot
+  all_events %>%
   merge(num_mpa, by = "region") %>%
   group_by(julianday, period, Year, region) %>%
-  filter(is_pH_and_DO_low == TRUE) %>%
-  reframe(pH_DO_prob = mean(n_distinct(File), na.rm=TRUE)/num_mpa) %>%
-  distinct(julianday, period, Year, region, pH_DO_prob) %>%
-  ungroup()
+  filter(multi_stressor == TRUE) %>%
+  reframe(multi_prob = mean(n_distinct(File), na.rm=TRUE)/num_mpa) %>%
+  distinct(julianday, period, Year, region, multi_prob) %>%
+  ungroup() %>%
 
-prob_of_pH_DO_T_event <- all_events %>%
-  merge(num_mpa, by = "region") %>%
-  group_by(julianday, period, Year, region) %>%
-  filter(is_pH_DO_and_T_low == TRUE) %>%
-  reframe(pH_DO_T_prob = mean(n_distinct(File), na.rm=TRUE)/num_mpa) %>%
-  distinct(julianday, period, Year, region, pH_DO_T_prob) %>%
-  ungroup()
-          
-
- if (num_stressors == "two"){
-
-  prob_of_pH_DO_event %>% 
   filter(period == periodt, region == regionn) %>%
-  ggplot(aes(julianday, Year, fill = pH_DO_prob)) +
+  ggplot(aes(julianday, Year, fill = multi_prob)) +
   geom_tile() +
-  scale_fill_distiller(palette = "YlOrRd", direction = 1, #change palette
-                        na.value = "skyblue") +
+  scale_fill_distiller(palette = "YlOrRd", direction = 1) +
   theme_classic() +
-  ggtitle(paste("Frequency of MPAs with pH and DO events","in", periodt, "period", "in", regionn)) +
+  ggtitle(paste("Frequency of MPAs with 2+ stressor events","in", periodt, "period", "in", regionn)) +
   theme(panel.background = element_rect(fill = "skyblue"))
     
-  } else {
-
-  prob_of_pH_DO_T_event %>%
-  filter(period == periodt, region == regionn) %>%
-  ggplot(aes(julianday, Year, fill = pH_DO_T_prob)) +
-  geom_tile() +
-  scale_fill_distiller(palette = "YlOrRd", direction = 1, #change palette
-                        na.value = "skyblue") +
-  theme_classic() +
-  ggtitle(paste("Frequency of MPAs with pH, DO, and T events","in", periodt, "period","in", regionn)) +
-  theme(panel.background = element_rect(fill = "skyblue"))
-    
-  }
 }
 
 ```
@@ -1287,13 +1263,9 @@ prob_of_pH_DO_T_event <- all_events %>%
 #| echo: false
 #| layout-ncol: 3
 
-multi_event("historic","centralca","two")
-multi_event("midcen","centralca","two")
-multi_event("endcen","centralca","two")
-
-multi_event("historic","centralca","three")
-multi_event("midcen","centralca","three")
-multi_event("endcen","centralca","three")
+multi_event("historic","centralca")
+multi_event("midcen","centralca")
+multi_event("endcen","centralca")
 ```
 
 #### Northern CA
@@ -1302,13 +1274,10 @@ multi_event("endcen","centralca","three")
 #| echo: false
 #| layout-ncol: 3
 
-multi_event("historic","norca","two")
-multi_event("midcen","norca","two")
-multi_event("endcen","norca","two")
+multi_event("historic","norca")
+multi_event("midcen","norca")
+multi_event("endcen","norca")
 
-multi_event("historic","norca","three")
-multi_event("midcen","norca","three")
-multi_event("endcen","norca","three")
 ```
 
 Southern CA
@@ -1317,13 +1286,10 @@ Southern CA
 #| echo: false
 #| layout-ncol: 3
 
-multi_event("historic","socal","two")
-multi_event("midcen","socal","two")
-multi_event("endcen","socal","two")
+multi_event("historic","socal")
+multi_event("midcen","socal")
+multi_event("endcen","socal")
 
-multi_event("historic","socal","three")
-multi_event("midcen","socal","three")
-multi_event("endcen","socal","three")
 ```
 
 Channel Islands
@@ -1332,13 +1298,10 @@ Channel Islands
 #| echo: false
 #| layout-ncol: 3
 
-multi_event("historic","channel","two")
-multi_event("midcen","channel","two")
-multi_event("endcen","channel","two")
+multi_event("historic","channel")
+multi_event("midcen","channel")
+multi_event("endcen","channel")
 
-multi_event("historic","channel","three")
-multi_event("midcen","channel","three")
-multi_event("endcen","channel","three")
 ```
 
 ## Time series to put in context
