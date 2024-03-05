@@ -1262,6 +1262,7 @@ num_mpa <- all_events %>%
 ```{r}
 #| echo: false
 #| layout-ncol: 3
+#| column: screen-inset
 
 multi_event("historic","centralca")
 multi_event("midcen","centralca")
@@ -1273,6 +1274,7 @@ multi_event("endcen","centralca")
 ```{r}
 #| echo: false
 #| layout-ncol: 3
+#| column: screen-inset
 
 multi_event("historic","norca")
 multi_event("midcen","norca")
@@ -1280,11 +1282,12 @@ multi_event("endcen","norca")
 
 ```
 
-Southern CA
+#### Southern CA
 
 ```{r}
 #| echo: false
 #| layout-ncol: 3
+#| column: screen-inset
 
 multi_event("historic","socal")
 multi_event("midcen","socal")
@@ -1292,11 +1295,12 @@ multi_event("endcen","socal")
 
 ```
 
-Channel Islands
+#### Channel Islands
 
 ```{r}
 #| echo: false
 #| layout-ncol: 3
+#| column: screen-inset
 
 multi_event("historic","channel")
 multi_event("midcen","channel")
