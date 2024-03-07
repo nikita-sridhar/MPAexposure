@@ -1247,6 +1247,11 @@ num_mpa <- all_events %>%
   ungroup() %>%
   distinct(region, num_mpa) 
 
+ #setting y range for plot
+ifelse(periodt == "historical", yrange <- c(2000,2020), 
+  ifelse(periodt == "midcen", yrange <- c(2040,2060), 
+         yrange <- c(2080,2100)))
+
 #plot
   all_events %>%
   merge(num_mpa, by = "region") %>%
@@ -1261,6 +1266,8 @@ num_mpa <- all_events %>%
   geom_tile() +
   scale_fill_distiller(palette = "YlOrRd", direction = 1) +
   theme_classic() +
+  ylim(yrange) +
+  xlim(1,365) +
   ggtitle(paste("Frequency of MPAs with 2+ stressor events","in", periodt, "period", "in", regionn)) +
   theme(panel.background = element_rect(fill = "skyblue"))
     
