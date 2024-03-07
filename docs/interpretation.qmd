@@ -44,11 +44,15 @@ Other summary statistics for temperature (mean and event-based standard deviatio
 >
 >     -   temperature seasonal variation either breaks down, or follows new patterns by the end-of-century
 
-#### *Considering a different metric of exposure via an event-based analysis: Will future events follow similar spatial patterns as historic events?* 
+### Considering a different metric of exposure: anomalous events
 
-Since organismal vulnerability to climate change can differ (i.e. mean conditions may be stressful for some, whereas frequent anomalous events may be stressful to others) **we characterize exposure of MPAs to future climate change representing various measures of vulnerability**. Understanding future patterns of warming and acidification will inform our expectations for geographic variation in MPA efficacy and resilience to environmental change.
+Since organismal vulnerability to climate change can differ (i.e. mean conditions may be stressful for some, whereas frequent anomalous events may be stressful to others) **we characterize exposure of MPAs to future climate change representing various measures of vulnerability**.
 
-Here we explore spatio-temporal patterns in the average number of stressful events in a year.
+Previously we explored spatio-temporal trends in stressor-associated variables by looking at their means and standard deviations. Here we explore trends in anomalous events. An "event" is two or more days where a threshold is crossed. The threshold for pH is 7.75, and the threshold for is 4.6. Temperature does not have a hard threshold like pH and DO as organisms typically respond to changes in temperature according to relative normals. The temperature threshold used for this analysis is the historical climatology's temp for a given month + 2\* the historical climatology SD.
+
+#### *How does the number of events experienced in a year change within/across regions between time periods*
+
+To understand how the number of events in a year changes with time, we represent the change in number of events between time periods in the following maps.
 
 <div>
 
