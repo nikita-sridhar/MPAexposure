@@ -64,8 +64,8 @@ ul.task-list li input[type="checkbox"] {
 <h2 class="anchored" data-anchor-id="importance-of-understanding-mpa-exposure-to-future-change">Importance of understanding MPA exposure to future change</h2>
 <p>MPAs are an important tool for protection of habitats, but little is known about how they will protect habitats in a changing climate. Many ecological principles and societal concerns informed the establishment of California’s MPA network (Gleason et al., 2013). For example, sites were chosen to represent important nearshore habitats, such as kelp forests, and ensure connectivity between populations (Gleason et al., 2010). However, at the time of establishment little research was available on the geographic variability in exposure of MPAs to climate stressors. Theory indicates MPAs may aid in climate resilience as they support larger-bodied individuals that may better withstand climate stress and robust populations due to high gene flow from connectivity (Hamilton et al., 2023). However, without knowing what climate conditions are expected in the future, it is difficult to predict how well MPAs will protect habitats.&nbsp;</p>
 </section>
-<section id="characterizing-exposure-of-future-projections" class="level2">
-<h2 class="anchored" data-anchor-id="characterizing-exposure-of-future-projections">Characterizing exposure of future projections:</h2>
+<section id="characterizing-exposure-of-future-warmingacidificationdeoxygenation" class="level2">
+<h2 class="anchored" data-anchor-id="characterizing-exposure-of-future-warmingacidificationdeoxygenation">Characterizing exposure of future warming/acidification/deoxygenation:</h2>
 <p>The spatio-temporal landscape of the CA coast is highly variable due to complex interplay of physical and biogeochemical processes like upwelling, creating a mosaic of temperature, pH, and dissolved oxygen conditions (Kroeker et al., 2023). As warming, ocean acidification, and deoxygenation accelerate, MPAs will be exposed to unique stressor magnitudes and combinations. There is no “one size fits all strategy” to predicting effects of climate change in MPAs as the CA network spans such highly multivariate environmental conditions - one MPA may experience very different conditions to another. Thus, it is important to understand whether <strong>future environmental change will overlay onto current patterns of variability in CA, or whether new sites of vulnerability may emerge in the future</strong> to better contextualize the efficacy of MPAs.&nbsp;</p>
 <section id="how-do-stressor-associated-variables-t-ph-and-do-mean-standard-deviation-and-lowerupper-10th-percentile-drive-the-spatial-clustering-of-regions-in-ca-and-how-will-these-patterns-change-in-the-future" class="level4">
 <h4 class="anchored" data-anchor-id="how-do-stressor-associated-variables-t-ph-and-do-mean-standard-deviation-and-lowerupper-10th-percentile-drive-the-spatial-clustering-of-regions-in-ca-and-how-will-these-patterns-change-in-the-future"><em>How do stressor-associated variables (T, pH, and DO mean, standard deviation, and lower/upper 10th percentile) drive the spatial clustering of regions in CA, and how will these patterns change in the future?</em></h4>
@@ -101,7 +101,7 @@ ul.task-list li input[type="checkbox"] {
 <div id="fig-regression-1" class="quarto-figure quarto-figure-center anchored">
 <figure class="figure">
 <p><img src="mpaexposure_files/figure-html/plot_regression_temp-3.png" class="img-fluid figure-img"></p>
-<figcaption class="figure-caption">Figure&nbsp;3: Historic vs.&nbsp;mid-century</figcaption>
+<figcaption class="figure-caption">Figure&nbsp;3: Historic vs.&nbsp;mid-century temp seasonal SD</figcaption>
 </figure>
 </div>
 </div>
@@ -109,7 +109,7 @@ ul.task-list li input[type="checkbox"] {
 <div id="fig-regression-2" class="quarto-figure quarto-figure-center anchored">
 <figure class="figure">
 <p><img src="mpaexposure_files/figure-html/plot_regression_temp-4.png" class="img-fluid figure-img"></p>
-<figcaption class="figure-caption">Figure&nbsp;4: Historic vs.&nbsp;end-century</figcaption>
+<figcaption class="figure-caption">Figure&nbsp;4: Historic vs.&nbsp;end-century temp seasonal SD</figcaption>
 </figure>
 </div>
 </div>
@@ -122,18 +122,94 @@ ul.task-list li input[type="checkbox"] {
 <li><p>Patterns driving regional clustering stay mostly the same from historic till end-of-century time periods</p></li>
 <li><p>Most future summary statistic values can be predicted by historical values. However,</p>
 <ul>
-<li><p>temperature seasonal variation either breaks down, or follows new patterns by the end-of-century</p></li>
-<li></li>
+<li>temperature seasonal variation either breaks down, or follows new patterns by the end-of-century</li>
 </ul></li>
 </ul>
 </blockquote>
-<p>Since organismal vulnerability to climate change can differ (i.e.&nbsp;mean conditions may be stressful for some, whereas frequent anomalous events may be stressful to others) <strong>we characterize exposure of MPAs to future climate change representing various measures of vulnerability</strong>. Understanding future patterns of warming and acidification will inform our expectations for geographic variation in MPA efficacy and resilience to environmental change.</p>
 </section>
-<section id="how-will-the-mean-and-variability-of-multivariate-conditions-in-future-time-periods-vary-from-historical-time-periods" class="level4">
-<h4 class="anchored" data-anchor-id="how-will-the-mean-and-variability-of-multivariate-conditions-in-future-time-periods-vary-from-historical-time-periods"><strong>How will the mean and variability of multivariate conditions in future time periods vary from historical time periods?</strong></h4>
+<section id="considering-a-different-metric-of-exposure-anomalous-events" class="level3">
+<h3 class="anchored" data-anchor-id="considering-a-different-metric-of-exposure-anomalous-events">Considering a different metric of exposure: anomalous events</h3>
+<p>Since organismal vulnerability to climate change can differ (i.e.&nbsp;mean conditions may be stressful for some, whereas frequent anomalous events may be stressful to others) <strong>we characterize exposure of MPAs to future climate change representing various measures of vulnerability</strong>.</p>
+<p>Previously we explored spatio-temporal trends in stressor-associated variables by looking at their means and standard deviations. Here we explore trends in anomalous events. An “event” is two or more days where a threshold is crossed. The threshold for pH is 7.75, and the threshold for is 4.6. Temperature does not have a hard threshold like pH and DO as organisms typically respond to changes in temperature according to relative normals. The temperature threshold used for this analysis is the historical climatology’s temp for a given month + 2* the historical climatology SD.</p>
+<section id="how-does-the-number-of-events-experienced-in-a-year-change-withinacross-regions-between-time-periods" class="level4">
+<h4 class="anchored" data-anchor-id="how-does-the-number-of-events-experienced-in-a-year-change-withinacross-regions-between-time-periods"><em>How does the number of events experienced in a year change within/across regions between time periods</em></h4>
+<p>To understand how the number of events in a year changes with time, we represent the change in number of events between time periods in the following maps. Maps are shown only for temperature, though similar trends were seen for pH and DO.</p>
+<div id="fig-anom-diff" class="quarto-layout-panel">
+<figure class="figure">
+<div class="quarto-layout-row quarto-layout-valign-top">
+<div class="quarto-layout-cell quarto-layout-cell-subref" style="flex-basis: 33.3%;justify-content: center;">
+<div id="fig-tempdiff1" class="quarto-figure quarto-figure-center anchored">
+<figure class="figure">
+<p><img src="mpaexposure_files/figure-html/plot_anom_map_temp_diff-1.png" class="img-fluid figure-img" data-ref-parent="fig-anom-diff"></p>
+<figcaption class="figure-caption">(a) Difference between midcen and historic avg days above threshold in a yr</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell quarto-layout-cell-subref" style="flex-basis: 33.3%;justify-content: center;">
+<div id="fig-tempdiff2" class="quarto-figure quarto-figure-center anchored">
+<figure class="figure">
+<p><img src="mpaexposure_files/figure-html/plot_anom_map_pH_diff-2.png" class="img-fluid figure-img" data-ref-parent="fig-anom-diff"></p>
+<figcaption class="figure-caption">(b) Difference between endcen and historic avg days above threshold in a yr</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell quarto-layout-cell-subref" style="flex-basis: 33.3%;justify-content: center;">
+<div id="fig-tempdiff3" class="quarto-figure quarto-figure-center anchored">
+<figure class="figure">
+<p><img src="mpaexposure_files/figure-html/plot_anom_map_temp_diff-3.png" class="img-fluid figure-img" data-ref-parent="fig-anom-diff"></p>
+<figcaption class="figure-caption">(c) Difference between endcen and midcen avg days above threshold in a yr</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p></p><figcaption class="figure-caption">Figure&nbsp;5: Difference in number of anomalous heat events in a year across time periods</figcaption><p></p>
+</figure>
+</div>
+<p>Some sites within regions (<em>specify which sites)</em> experience more anomalous events in a year than others in the region, but the progression follows the same spatial mosaic as the historical time period. The change in number of anomalous events increases more so between mid-century and end-century periods, rather than historical and mid-century periods.</p>
 </section>
-<section id="how-will-the-number-and-frequency-of-anomalous-events-change-in-the-future" class="level4">
-<h4 class="anchored" data-anchor-id="how-will-the-number-and-frequency-of-anomalous-events-change-in-the-future"><strong>How will the number and frequency of anomalous events change in the future?</strong></h4>
+<section id="how-does-the-intensity-of-events-vary-across-regions-taking-a-finer-temporal-scale-but-coarser-spatial-scale-approach-by-looking-at-events-across-years" class="level4">
+<h4 class="anchored" data-anchor-id="how-does-the-intensity-of-events-vary-across-regions-taking-a-finer-temporal-scale-but-coarser-spatial-scale-approach-by-looking-at-events-across-years"><em>How does the intensity of events vary across regions? Taking a finer temporal scale (but coarser spatial scale) approach by looking at events across years</em></h4>
+<p>Here we represent the intensity of events on an event scale, averaged over all MPAs within the region. The shading represents the intensity of an event, which is the threshold value minus the event mean. Note: scale bars are not fixed across periods. Figures are only shown for pH in Central CA.</p>
+<div id="fig-sevintdur1" class="quarto-layout-panel">
+<figure class="figure">
+<div class="quarto-layout-row quarto-layout-valign-top">
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="mpaexposure_files/figure-html/plot_pH_sev_int_dur_centralCA-1.png" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">Mean intensity of pH events in Central CA in historic period</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell quarto-layout-cell-subref" style="flex-basis: 33.3%;justify-content: center;">
+<div id="fig-sevintdur2" class="quarto-figure quarto-figure-center anchored">
+<figure class="figure">
+<p><img src="mpaexposure_files/figure-html/plot_pH_sev_int_dur_centralCA-2.png" class="img-fluid figure-img" data-ref-parent="fig-sevintdur1"></p>
+<figcaption class="figure-caption">(a) Mean intensity of pH events in Central CA in midcen period</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell quarto-layout-cell-subref" style="flex-basis: 33.3%;justify-content: center;">
+<div id="fig-sevintdur3" class="quarto-figure quarto-figure-center anchored">
+<figure class="figure">
+<p><img src="mpaexposure_files/figure-html/plot_pH_sev_int_dur_centralCA-3.png" class="img-fluid figure-img" data-ref-parent="fig-sevintdur1"></p>
+<figcaption class="figure-caption">(b) Mean intensity of pH events in Central CA in endcen period</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p></p><figcaption class="figure-caption">Figure&nbsp;6: Severity-intensity-duration of events</figcaption><p></p>
+</figure>
+</div>
+</section>
+<section id="how-does-exposure-to-multiple-stressors-change-across-regions-through-time" class="level4">
+<h4 class="anchored" data-anchor-id="how-does-exposure-to-multiple-stressors-change-across-regions-through-time"><em>How does exposure to multiple stressors change across regions through time?</em></h4>
+<p>Since multiple stressors will co-occur, it is important to consider exposure to multiple simultaneous events.</p>
+<p>::: {#layout-ncol = "3"} <img src="mpaexposure_files/figure-html/plot_multi_event_northernCA-1.png" class="img-fluid"></p>
+<p><img src="mpaexposure_files/figure-html/plot_multi_event_northernCA-2.png" class="img-fluid"></p>
+<p><img src="mpaexposure_files/figure-html/plot_multi_event_northernCA-3.png" class="img-fluid"> :::</p>
+<p>There is low to no co-occurrence of stressors (any combination of pH, T, or DO events) in historical time periods, few occurrences in northern CA in mid century (and low or none in other regions), and extremely high occurrences across regions in the end century time period.</p>
+</section>
 </section>
 </section>
 

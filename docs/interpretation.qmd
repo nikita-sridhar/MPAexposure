@@ -54,16 +54,42 @@ Previously we explored spatio-temporal trends in stressor-associated variables b
 
 To understand how the number of events in a year changes with time, we represent the change in number of events between time periods in the following maps. Maps are shown only for temperature, though similar trends were seen for pH and DO.
 
-\[insert temp diff anom maps\]
+::: {#fig-anom-diff layout-ncol="3"}
+![Difference between midcen and historic avg days above threshold in a yr](mpaexposure_files/figure-html/plot_anom_map_temp_diff-1.png){#fig-tempdiff1}
+
+![Difference between endcen and historic avg days above threshold in a yr](mpaexposure_files/figure-html/plot_anom_map_pH_diff-2.png){#fig-tempdiff2}
+
+![Difference between endcen and midcen avg days above threshold in a yr](mpaexposure_files/figure-html/plot_anom_map_temp_diff-3.png){#fig-tempdiff3}
+
+Difference in number of anomalous heat events in a year across time periods
+:::
 
 Some sites within regions (*specify which sites)* experience more anomalous events in a year than others in the region, but the progression follows the same spatial mosaic as the historical time period. The change in number of anomalous events increases more so between mid-century and end-century periods, rather than historical and mid-century periods.
 
-#### *How does the intensity of events vary across regions? Taking a finer temporal scale approach by looking at days in a year with/without events*
+#### *How does the intensity of events vary across regions? Taking a finer temporal scale (but coarser spatial scale) approach by looking at events across years*
 
-Here we represent the intensity of events on an event scale, averaged over all MPAs within the region. The shading represents the intensity of an event, which is the threshold value minus the event mean.
+Here we represent the intensity of events on an event scale, averaged over all MPAs within the region. The shading represents the intensity of an event, which is the threshold value minus the event mean. Note: scale bars are not fixed across periods. Figures are only shown for pH in Central CA.
 
-\[sev-int-dur\]
+::: {#fig-sevintdur1 layout-ncol="3"}
+![Mean intensity of pH events in Central CA in historic period](mpaexposure_files/figure-html/plot_pH_sev_int_dur_centralCA-1.png)
+
+![Mean intensity of pH events in Central CA in midcen period](mpaexposure_files/figure-html/plot_pH_sev_int_dur_centralCA-2.png){#fig-sevintdur2}
+
+![Mean intensity of pH events in Central CA in endcen period](mpaexposure_files/figure-html/plot_pH_sev_int_dur_centralCA-3.png){#fig-sevintdur3}
+
+Severity-intensity-duration of events
+:::
 
 #### *How does exposure to multiple stressors change across regions through time?*
 
-\[multi stressor\]
+Since multiple stressors will co-occur, it is important to consider exposure to multiple simultaneous events.
+
+::: {#layout-ncol = \"3\"}
+![](mpaexposure_files/figure-html/plot_multi_event_northernCA-1.png)
+
+![](mpaexposure_files/figure-html/plot_multi_event_northernCA-2.png)
+
+![](mpaexposure_files/figure-html/plot_multi_event_northernCA-3.png)
+:::
+
+There is low to no co-occurrence of stressors (any combination of pH, T, or DO events) in historical time periods, few occurrences in northern CA in mid century (and low or none in other regions), and extremely high occurrences across regions in the end century time period.
