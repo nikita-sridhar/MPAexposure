@@ -352,7 +352,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  sumsub <span class="ot">&lt;-</span> sum_period <span class="sc">%&gt;%</span> <span class="fu">select</span>(<span class="sc">-</span>OBJECTID,<span class="sc">-</span>NAME, <span class="sc">-</span>File, <span class="sc">-</span>SHORTNAME, <span class="sc">-</span>degx, </span>
 <span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>                                  <span class="sc">-</span>degy, <span class="sc">-</span>region, <span class="sc">-</span>period, <span class="sc">-</span>Date) </span>
 <span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>  <span class="co">#only historic time period's pc axis needs to be rotated </span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>  <span class="co">#only endcen time period's pc axis needs to be rotated </span></span>
 <span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (periodt <span class="sc">==</span> <span class="st">"endcen"</span>){</span>
 <span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>  pca <span class="ot">&lt;-</span> <span class="fu">prcomp</span>(sumsub[,<span class="sc">-</span><span class="dv">1</span>], <span class="at">scale =</span> <span class="cn">TRUE</span>)</span>
 <span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">else</span> {</span>
@@ -735,7 +735,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="anomalous-phdotemp-event-analysis" class="level2">
 <h2 class="anchored" data-anchor-id="anomalous-phdotemp-event-analysis">Anomalous pH/DO/temp Event Analysis</h2>
-<p>Identify pH/DO/temp anomalous events. Events for pH are defined as 2+ days where pH &lt; 7.75, and events for DO are 2+ days where DO &lt; 4.6. Events for temp defined as 1+ days where daily temp exceeds historical climatology’s temp for that month + 2* historical climatology SD.</p>
+<p>Identify pH/DO/temp anomalous events. Events for pH are defined as 2+ days where pH &lt; 7.75, and events for DO are 2+ days where DO &lt; 4.6. Events for temp defined as 2+ days where daily temp exceeds historical climatology’s temp for that month + 2* historical climatology SD.</p>
 <p>For each <u>event</u>, the following are calculated: 1) Duration of days, 2) Date event began, 3) Mean pH/DO/T during the event, 4) Intensity of the event (threshold - event mean), 5) Severity of the event (intensity*duration).</p>
 <p>For each <u>MPA</u>, the following are calculated: 1) Number of events, 2) Mean event duration, 3) Mean of average event pH/DO/T, 4) Mean event intensity, 5) Mean event severity, 6) Average number of events within a year, 7) Average annual pH/DO/T during event</p>
 <div class="cell">
@@ -1442,13 +1442,13 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <div class="cell column-screen-inset quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-36-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_temp_sev_int_dur_channel-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-36-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_temp_sev_int_dur_channel-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-36-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_temp_sev_int_dur_channel-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -1461,13 +1461,13 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <div class="cell column-screen-inset quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-37-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_pH_sev_int_dur_centralCA-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-37-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_pH_sev_int_dur_centralCA-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-37-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_pH_sev_int_dur_centralCA-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -1477,13 +1477,13 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <div class="cell column-screen-inset quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-38-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_pH_sev_int_dur_norCA-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-38-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_pH_sev_int_dur_norCA-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-38-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_pH_sev_int_dur_norCA-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -1493,13 +1493,13 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <div class="cell column-screen-inset quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-39-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_pH_sev_int_dur_southernCA-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-39-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_pH_sev_int_dur_southernCA-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-39-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_pH_sev_int_dur_southernCA-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -1509,13 +1509,13 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <div class="cell column-screen-inset quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-40-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_pH_sev_int_dur_channel-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-40-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_pH_sev_int_dur_channel-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-40-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_pH_sev_int_dur_channel-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -1528,13 +1528,13 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <div class="cell column-screen-inset quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-41-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_DO_sev_int_dur_centralCA-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-41-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_DO_sev_int_dur_centralCA-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-41-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_DO_sev_int_dur_centralCA-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -1544,13 +1544,13 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <div class="cell column-screen-inset quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-42-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_DO_sev_int_dur_northernCA-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-42-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_DO_sev_int_dur_northernCA-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-42-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_DO_sev_int_dur_northernCA-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -1560,13 +1560,13 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <div class="cell column-screen-inset quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-43-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_DO_sev_int_dur_southernCA-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-43-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_DO_sev_int_dur_southernCA-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-43-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_DO_sev_int_dur_southernCA-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -1576,13 +1576,13 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <div class="cell column-screen-inset quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-44-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_DO_sev_int_dur_channel-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-44-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_DO_sev_int_dur_channel-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-44-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_DO_sev_int_dur_channel-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -1614,24 +1614,31 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <span id="cb20-17"><a href="#cb20-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span></span>
 <span id="cb20-18"><a href="#cb20-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">distinct</span>(region, num_mpa) </span>
 <span id="cb20-19"><a href="#cb20-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-20"><a href="#cb20-20" aria-hidden="true" tabindex="-1"></a><span class="co">#plot</span></span>
-<span id="cb20-21"><a href="#cb20-21" aria-hidden="true" tabindex="-1"></a>  all_events <span class="sc">%&gt;%</span></span>
-<span id="cb20-22"><a href="#cb20-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">merge</span>(num_mpa, <span class="at">by =</span> <span class="st">"region"</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb20-23"><a href="#cb20-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(julianday, period, Year, region) <span class="sc">%&gt;%</span></span>
-<span id="cb20-24"><a href="#cb20-24" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(multi_stressor <span class="sc">==</span> <span class="cn">TRUE</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb20-25"><a href="#cb20-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">reframe</span>(<span class="at">multi_prob =</span> <span class="fu">mean</span>(<span class="fu">n_distinct</span>(File), <span class="at">na.rm=</span><span class="cn">TRUE</span>)<span class="sc">/</span>num_mpa) <span class="sc">%&gt;%</span></span>
-<span id="cb20-26"><a href="#cb20-26" aria-hidden="true" tabindex="-1"></a>  <span class="fu">distinct</span>(julianday, period, Year, region, multi_prob) <span class="sc">%&gt;%</span></span>
-<span id="cb20-27"><a href="#cb20-27" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span></span>
-<span id="cb20-28"><a href="#cb20-28" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-29"><a href="#cb20-29" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(period <span class="sc">==</span> periodt, region <span class="sc">==</span> regionn) <span class="sc">%&gt;%</span></span>
-<span id="cb20-30"><a href="#cb20-30" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(julianday, Year, <span class="at">fill =</span> multi_prob)) <span class="sc">+</span></span>
-<span id="cb20-31"><a href="#cb20-31" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_tile</span>() <span class="sc">+</span></span>
-<span id="cb20-32"><a href="#cb20-32" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_distiller</span>(<span class="at">palette =</span> <span class="st">"YlOrRd"</span>, <span class="at">direction =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
-<span id="cb20-33"><a href="#cb20-33" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_classic</span>() <span class="sc">+</span></span>
-<span id="cb20-34"><a href="#cb20-34" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggtitle</span>(<span class="fu">paste</span>(<span class="st">"Frequency of MPAs with 2+ stressor events"</span>,<span class="st">"in"</span>, periodt, <span class="st">"period"</span>, <span class="st">"in"</span>, regionn)) <span class="sc">+</span></span>
-<span id="cb20-35"><a href="#cb20-35" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">panel.background =</span> <span class="fu">element_rect</span>(<span class="at">fill =</span> <span class="st">"skyblue"</span>))</span>
-<span id="cb20-36"><a href="#cb20-36" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb20-37"><a href="#cb20-37" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb20-20"><a href="#cb20-20" aria-hidden="true" tabindex="-1"></a> <span class="co">#setting y range for plot</span></span>
+<span id="cb20-21"><a href="#cb20-21" aria-hidden="true" tabindex="-1"></a><span class="fu">ifelse</span>(periodt <span class="sc">==</span> <span class="st">"historical"</span>, yrange <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">2000</span>,<span class="dv">2020</span>), </span>
+<span id="cb20-22"><a href="#cb20-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ifelse</span>(periodt <span class="sc">==</span> <span class="st">"midcen"</span>, yrange <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">2040</span>,<span class="dv">2060</span>), </span>
+<span id="cb20-23"><a href="#cb20-23" aria-hidden="true" tabindex="-1"></a>         yrange <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">2080</span>,<span class="dv">2100</span>)))</span>
+<span id="cb20-24"><a href="#cb20-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-25"><a href="#cb20-25" aria-hidden="true" tabindex="-1"></a><span class="co">#plot</span></span>
+<span id="cb20-26"><a href="#cb20-26" aria-hidden="true" tabindex="-1"></a>  all_events <span class="sc">%&gt;%</span></span>
+<span id="cb20-27"><a href="#cb20-27" aria-hidden="true" tabindex="-1"></a>  <span class="fu">merge</span>(num_mpa, <span class="at">by =</span> <span class="st">"region"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb20-28"><a href="#cb20-28" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(julianday, period, Year, region) <span class="sc">%&gt;%</span></span>
+<span id="cb20-29"><a href="#cb20-29" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(multi_stressor <span class="sc">==</span> <span class="cn">TRUE</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb20-30"><a href="#cb20-30" aria-hidden="true" tabindex="-1"></a>  <span class="fu">reframe</span>(<span class="at">multi_prob =</span> <span class="fu">mean</span>(<span class="fu">n_distinct</span>(File), <span class="at">na.rm=</span><span class="cn">TRUE</span>)<span class="sc">/</span>num_mpa) <span class="sc">%&gt;%</span></span>
+<span id="cb20-31"><a href="#cb20-31" aria-hidden="true" tabindex="-1"></a>  <span class="fu">distinct</span>(julianday, period, Year, region, multi_prob) <span class="sc">%&gt;%</span></span>
+<span id="cb20-32"><a href="#cb20-32" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb20-33"><a href="#cb20-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-34"><a href="#cb20-34" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(period <span class="sc">==</span> periodt, region <span class="sc">==</span> regionn) <span class="sc">%&gt;%</span></span>
+<span id="cb20-35"><a href="#cb20-35" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(julianday, Year, <span class="at">fill =</span> multi_prob)) <span class="sc">+</span></span>
+<span id="cb20-36"><a href="#cb20-36" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_tile</span>() <span class="sc">+</span></span>
+<span id="cb20-37"><a href="#cb20-37" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_distiller</span>(<span class="at">palette =</span> <span class="st">"YlOrRd"</span>, <span class="at">direction =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
+<span id="cb20-38"><a href="#cb20-38" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_classic</span>() <span class="sc">+</span></span>
+<span id="cb20-39"><a href="#cb20-39" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ylim</span>(yrange) <span class="sc">+</span></span>
+<span id="cb20-40"><a href="#cb20-40" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlim</span>(<span class="dv">1</span>,<span class="dv">365</span>) <span class="sc">+</span></span>
+<span id="cb20-41"><a href="#cb20-41" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggtitle</span>(<span class="fu">paste</span>(<span class="st">"Frequency of MPAs with 2+ stressor events"</span>,<span class="st">"in"</span>, periodt, <span class="st">"period"</span>, <span class="st">"in"</span>, regionn)) <span class="sc">+</span></span>
+<span id="cb20-42"><a href="#cb20-42" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">panel.background =</span> <span class="fu">element_rect</span>(<span class="at">fill =</span> <span class="st">"skyblue"</span>))</span>
+<span id="cb20-43"><a href="#cb20-43" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb20-44"><a href="#cb20-44" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 </div>
 <section id="central-ca-3" class="level4 page-columns page-full">
@@ -1639,13 +1646,13 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <div class="cell column-screen-inset quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-46-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_multi_event_centralCA-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-46-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_multi_event_centralCA-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-46-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_multi_event_centralCA-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -1655,13 +1662,13 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <div class="cell column-screen-inset quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-47-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_multi_event_northernCA-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-47-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_multi_event_northernCA-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-47-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_multi_event_northernCA-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -1671,13 +1678,13 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <div class="cell column-screen-inset quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-48-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_multi_event_southernCA-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-48-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_multi_event_southernCA-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-48-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_multi_event_southernCA-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
@@ -1687,13 +1694,13 @@ Projected CRS: WGS 84 / Pseudo-Mercator</code></pre>
 <div class="cell column-screen-inset quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-49-1.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_multi_event_channel-1.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-49-2.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_multi_event_channel-2.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
-<p><img src="mpaexposure_files/figure-html/unnamed-chunk-49-3.png" class="img-fluid" width="672"></p>
+<p><img src="mpaexposure_files/figure-html/plot_multi_event_channel-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </div>
