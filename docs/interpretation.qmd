@@ -52,12 +52,18 @@ Previously we explored spatio-temporal trends in stressor-associated variables b
 
 #### *How does the number of events experienced in a year change within/across regions between time periods*
 
-To understand how the number of events in a year changes with time, we represent the change in number of events between time periods in the following maps.
+To understand how the number of events in a year changes with time, we represent the change in number of events between time periods in the following maps. Maps are shown only for temperature, though similar trends were seen for pH and DO.
 
-<div>
+\[insert temp diff anom maps\]
 
-DO unaffected whereas temp and pH number of events in a year increase significantly – temp events in historical time period uniformly increase, whereas for pH the spatial gradient (which is present in historical) is maintained with relative increases in number of annual events.
+Some sites within regions (*specify which sites)* experience more anomalous events in a year than others in the region, but the progression follows the same spatial mosaic as the historical time period. The change in number of anomalous events increases more so between mid-century and end-century periods, rather than historical and mid-century periods.
 
-</div>
+#### *How does the intensity of events vary across regions? Taking a finer temporal scale approach by looking at days in a year with/without events*
 
-#### 
+Here we represent the intensity of events on an event scale, averaged over all MPAs within the region. The shading represents the intensity of an event, which is the threshold value minus the event mean.
+
+\[sev-int-dur\]
+
+#### *How does exposure to multiple stressors change across regions through time?*
+
+\[multi stressor\]
