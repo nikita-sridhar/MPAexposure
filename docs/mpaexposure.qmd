@@ -302,7 +302,7 @@ make_pca <- function(df, periodt){
   sumsub <- sum_period %>% select(-OBJECTID,-NAME, -File, -SHORTNAME, -degx, 
                                   -degy, -region, -period, -Date) 
   
-  #only historic time period's pc axis needs to be rotated 
+  #only endcen time period's pc axis needs to be rotated 
   if (periodt == "endcen"){
   pca <- prcomp(sumsub[,-1], scale = TRUE)
   } else {
@@ -537,7 +537,7 @@ make_regression("DO_eventSD", "historic", "endcen")
 
 ## Anomalous pH/DO/temp Event Analysis
 
-Identify pH/DO/temp anomalous events. Events for pH are defined as 2+ days where pH \< 7.75, and events for DO are 2+ days where DO \< 4.6. Events for temp defined as 1+ days where daily temp exceeds historical climatology's temp for that month + 2\* historical climatology SD.
+Identify pH/DO/temp anomalous events. Events for pH are defined as 2+ days where pH \< 7.75, and events for DO are 2+ days where DO \< 4.6. Events for temp defined as 2+ days where daily temp exceeds historical climatology's temp for that month + 2\* historical climatology SD.
 
 For each [event]{.underline}, the following are calculated: 1) Duration of days, 2) Date event began, 3) Mean pH/DO/T during the event, 4) Intensity of the event (threshold - event mean), 5) Severity of the event (intensity\*duration).
 
@@ -1095,6 +1095,7 @@ temp_sev_int_dur_regional("endcen", "socal")
 ##### Channel Islands:
 
 ```{r}
+#| label: plot_temp_sev_int_dur_channel
 #| layout-ncol: 3
 #| echo: false
 #| column: screen-inset
@@ -1109,6 +1110,7 @@ temp_sev_int_dur_regional("endcen", "channel")
 ##### Central CA:
 
 ```{r}
+#| label: plot_pH_sev_int_dur_centralCA
 #| layout-ncol: 3
 #| echo: false
 #| column: screen-inset
@@ -1122,6 +1124,7 @@ pH_sev_int_dur_regional("endcen", "centralca")
 ##### Northern CA:
 
 ```{r}
+#| label: plot_pH_sev_int_dur_norCA
 #| layout-ncol: 3
 #| echo: false
 #| column: screen-inset
@@ -1135,6 +1138,7 @@ pH_sev_int_dur_regional("endcen", "norca")
 ##### Southern CA :
 
 ```{r}
+#| label: plot_pH_sev_int_dur_southernCA
 #| echo: false
 #| column: screen-inset
 #| layout-ncol: 3
@@ -1148,6 +1152,7 @@ pH_sev_int_dur_regional("endcen", "socal")
 ##### Channel Islands:
 
 ```{r}
+#| label: plot_pH_sev_int_dur_channel
 #| echo: false
 #| column: screen-inset
 #| layout-ncol: 3
@@ -1162,6 +1167,7 @@ pH_sev_int_dur_regional("endcen", "channel")
 ##### Central CA:
 
 ```{r}
+#| label: plot_DO_sev_int_dur_centralCA
 #| echo: false
 #| column: screen-inset
 #| layout-ncol: 3
@@ -1175,6 +1181,7 @@ DO_sev_int_dur_regional("endcen", "centralca")
 ##### Northern CA:
 
 ```{r}
+#| label: plot_DO_sev_int_dur_northernCA
 #| echo: false
 #| column: screen-inset
 #| layout-ncol: 3
@@ -1188,6 +1195,7 @@ DO_sev_int_dur_regional("endcen", "norca")
 ##### Southern CA :
 
 ```{r}
+#| label: plot_DO_sev_int_dur_southernCA
 #| echo: false
 #| column: screen-inset
 #| layout-ncol: 3
@@ -1201,6 +1209,7 @@ DO_sev_int_dur_regional("endcen", "socal")
 ##### Channel Islands:
 
 ```{r}
+#| label: plot_DO_sev_int_dur_channel
 #| echo: false
 #| column: screen-inset
 #| layout-ncol: 3
@@ -1217,6 +1226,8 @@ DO_sev_int_dur_regional("endcen", "channel")
 Frequency an MPA encounters multiple events. Note: an event is 1+ days, whereas previously it was defined as 2+ days. Thus, total number of possible events for one stressor in a year is 365.
 
 ```{r}
+#| label: multi_event
+
 multi_event <- function(periodt,regionn){
 
 all_events <- events %>%
@@ -1260,6 +1271,7 @@ num_mpa <- all_events %>%
 #### Central CA
 
 ```{r}
+#| label: plot_multi_event_centralCA
 #| echo: false
 #| layout-ncol: 3
 #| column: screen-inset
@@ -1272,6 +1284,7 @@ multi_event("endcen","centralca")
 #### Northern CA
 
 ```{r}
+#| label: plot_multi_event_northernCA
 #| echo: false
 #| layout-ncol: 3
 #| column: screen-inset
@@ -1285,6 +1298,7 @@ multi_event("endcen","norca")
 #### Southern CA
 
 ```{r}
+#| label: plot_multi_event_southernCA
 #| echo: false
 #| layout-ncol: 3
 #| column: screen-inset
@@ -1298,6 +1312,7 @@ multi_event("endcen","socal")
 #### Channel Islands
 
 ```{r}
+#| label: plot_multi_event_channel
 #| echo: false
 #| layout-ncol: 3
 #| column: screen-inset
