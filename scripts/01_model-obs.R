@@ -4,6 +4,7 @@
 #model fit
 
 library(tidyverse)
+library(ggpubr)
 
 
 #Load model and obs data 
@@ -59,19 +60,19 @@ obs$obs_DO[is.nan(obs$obs_DO)]<-NA
 
 
 #pdf - NorCA
-ggplot() + 
+norcal_temp <- ggplot() + 
   geom_density(data = mod%>%filter(region == "Northern CA"), fill = "green", alpha = 0.5, aes(mod_T)) +
   geom_density(data = obs%>%filter(region == "Northern CA"), fill = "red", alpha = 0.4, aes(obs_T)) +
   ggtitle("Northern CA T fit") +
   theme_classic()+
   labs(x = "Temperature (C)", y = "Probability density")
-ggplot() + 
+norcal_ph <- ggplot() + 
   geom_density(data = mod%>%filter(region == "Northern CA"), fill = "green", alpha = 0.5, aes(mod_pH)) +
   geom_density(data = obs%>%filter(region == "Northern CA"), fill = "red", alpha = 0.4, aes(obs_pH)) +
   ggtitle("Northern CA pH fit")+
   theme_classic()+
   labs(x = "pH", y = "Probability density")
-ggplot() + 
+norcal_do <- ggplot() + 
   geom_density(data = mod%>%filter(region == "Northern CA"), fill = "green", alpha = 0.5, aes(mod_DO)) +
   geom_density(data = obs%>%filter(region == "Northern CA"), fill = "red", alpha = 0.4, aes(obs_DO)) +
   ggtitle("Northern CA DO fit")+
@@ -79,19 +80,19 @@ ggplot() +
   labs(x = "DO", y = "Probability density")
 
 #pdf - CenCA
-ggplot() + 
+cenca_temp <- ggplot() + 
   geom_density(data = mod%>%filter(region == "Central CA"), fill = "green", alpha = 0.5, aes(mod_T)) +
   geom_density(data = obs%>%filter(region == "Central CA"), fill = "red", alpha = 0.4, aes(obs_T)) +
   ggtitle("Central CA T fit")  +
   theme_classic()+
   labs(x = "Temperature (C)", y = "Probability density")
-ggplot() + 
+cenca_ph <- ggplot() + 
   geom_density(data = mod%>%filter(region == "Central CA"), fill = "green", alpha = 0.5, aes(mod_pH)) +
   geom_density(data = obs%>%filter(region == "Central CA"), fill = "red", alpha = 0.4, aes(obs_pH)) +
   ggtitle("Central CA pH fit")+
   theme_classic()+
   labs(x = "pH", y = "Probability density")
-ggplot() + 
+cenca_do <- ggplot() + 
   geom_density(data = mod%>%filter(region == "Central CA"), fill = "green", alpha = 0.5, aes(mod_DO)) +
   geom_density(data = obs%>%filter(region == "Central CA"), fill = "red", alpha = 0.4, aes(obs_DO)) +
   ggtitle("Central CA DO fit")+
@@ -101,19 +102,19 @@ ggplot() +
 
 
 #pdf - SoCA
-ggplot() + 
+socal_temp <- ggplot() + 
   geom_density(data = mod%>%filter(region == "Southern CA"), fill = "green", alpha = 0.5, aes(mod_T)) +
   geom_density(data = obs%>%filter(region == "Southern CA"), fill = "red", alpha = 0.4, aes(obs_T)) +
   ggtitle("Southern CA T fit") +
   theme_classic()+
   labs(x = "Temperature (C)", y = "Probability density")
-ggplot() + 
+socal_ph <- ggplot() + 
   geom_density(data = mod%>%filter(region == "Southern CA"), fill = "green", alpha = 0.5, aes(mod_pH)) +
   geom_density(data = obs%>%filter(region == "Southern CA"), fill = "red", alpha = 0.4, aes(obs_pH)) +
   ggtitle("Southern CA pH fit")+
   theme_classic()+
   labs(x = "pH", y = "Probability density")
-ggplot() + 
+socal_do <- ggplot() + 
   geom_density(data = mod%>%filter(region == "Southern CA"), fill = "green", alpha = 0.5, aes(mod_DO)) +
   geom_density(data = obs%>%filter(region == "Southern CA"), fill = "red", alpha = 0.4, aes(obs_DO)) +
   ggtitle("Southern CA DO fit") +
@@ -122,24 +123,42 @@ ggplot() +
 
 
 #pdf - channel isl
-ggplot() + 
+channel_temp <- ggplot() + 
   geom_density(data = mod%>%filter(region == "Channel Islands"), fill = "green", alpha = 0.5, aes(mod_T)) +
   geom_density(data = obs%>%filter(region == "Channel Islands"), fill = "red", alpha = 0.4, aes(obs_T)) +
   ggtitle("Channel Islands T fit") +
   theme_classic()+
   labs(x = "Temperature (C)", y = "Probability density")
-ggplot() + 
+channel_ph <- ggplot() + 
   geom_density(data = mod%>%filter(region == "Channel Islands"), fill = "green", alpha = 0.5, aes(mod_pH)) +
   geom_density(data = obs%>%filter(region == "Channel Islands"), fill = "red", alpha = 0.4, aes(obs_pH)) +
   ggtitle("Channel Islands pH fit")+
   theme_classic()+
   labs(x = "pH", y = "Probability density")
-ggplot() + 
-  geom_density(data = mod%>%filter(region == "Channel Islands"), fill = "green", alpha = 0.5, aes(mod_DO)) +
-  geom_density(data = obs%>%filter(region == "Channel Islands"), fill = "red", alpha = 0.4, aes(obs_DO)) +
+
+#only adding legend to this one bc in ggarrange it will apply to all
+channel_do <- ggplot() + 
+  geom_density(data = mod%>%filter(region == "Channel Islands"),
+               aes(x = mod_DO, fill="mod"),
+               alpha = 0.5) +
+  geom_density(data = obs%>%filter(region == "Channel Islands"), 
+               aes(x = obs_DO, fill = "obs"), 
+               alpha = 0.4) +
+
+  scale_fill_manual(name = " ",
+                    values = c("mod"="green","obs"="red"),
+                    labels = c("Model","Observation")) +
   ggtitle("Channel Islands DO fit") +
   theme_classic()+
-  labs(x = "DO", y = "Probability density")
+  labs(x = "DO", y = "Probability density") 
+
+
+ggarrange(norcal_temp, norcal_ph, norcal_do, cenca_temp, cenca_ph, cenca_do, 
+          socal_temp, socal_ph, socal_do, channel_temp, channel_ph, channel_do,
+          labels = c("A","B","C","D", "E", "F", "G", "H", "I", "K", "L", "M"),
+          ncol = 3, nrow = 4, 
+          common.legend = TRUE,
+          legend = "bottom")
 
 
 #cdf
@@ -148,5 +167,4 @@ ggplot() +
   stat_ecdf(data = obs%>%filter(region == "Northern CA"), color = "red", alpha = 0.4, aes(obs_T))
 
   
-rm(mod)
-rm(obs)
+

@@ -300,7 +300,7 @@ PCA of all summary stats (mean, lower 10th percentile, upper 10th percentile, se
 make_pca <- function(df, periodt){
   sum_period <- df %>% filter(period == periodt) 
   sumsub <- sum_period %>% select(-OBJECTID,-NAME, -File, -SHORTNAME, -degx, 
-                                  -degy, -region, -period, -Date) 
+                                  -degy, -region, -period) 
   
   #only endcen time period's pc axis needs to be rotated 
   if (periodt == "endcen"){
@@ -354,7 +354,6 @@ make_pca(sum, "endcen") #need to rotate by changing sumsub to sumsub[,-1] inside
   fviz_pca_biplot(pca, repel = TRUE,
                   col.var = "black",
                   col.ind = sum$region,
-                  shape
                   geom = "text",
                   label ="var",
                   labelsize = 3,
@@ -363,6 +362,110 @@ make_pca(sum, "endcen") #need to rotate by changing sumsub to sumsub[,-1] inside
     
 
   
+```
+
+## NMDS Plots
+
+```{r}
+#saving factor scores from pca of whole dataset (above chunk) and only select PC1 (most explanatory)
+factors <- as.data.frame(pca$x) %>%
+  select("PC1") %>%
+#I think the rows correspond to each individual mpa for a certain time period, corresponds to sum, need to merge this and only select pc1 since its most explanatory (but need to confirm this)
+  cbind(sum) %>%
+#convert from long to wide (for period) 
+  pivot_wider(id_cols = c("File","region","SHORTNAME"),
+              names_from = "period",
+              values_from = "PC1",
+              names_prefix = "PC1_") %>%
+  select(File, region, SHORTNAME, PC1_historic, PC1_midcen, PC1_endcen)
+
+#running lm model of historic vs. midcen and historic vs. endcen
+hist_midcen_mod <- lm(PC1_midcen ~ PC1_historic, data = factors)
+hist_endcen_mod <- lm(PC1_endcen ~ PC1_historic, data = factors)
+midcen_endcen_mod <- lm( PC1_endcen ~ PC1_midcen, data = factors)
+
+summary(hist_midcen_mod)
+summary(hist_endcen_mod)
+
+#saving residuals and fitted values. - scaled so wrt 0
+factors2 <- factors %>% mutate(predicted_hist_midcen = predict(hist_midcen_mod),
+                  residual_hist_midcen = residuals(hist_midcen_mod),
+                  predicted_hist_endcen = predict(hist_endcen_mod),
+                  residual_hist_endcen = residuals(hist_endcen_mod),
+                  predicted_midcen_endcen = predict(midcen_endcen_mod),
+                  residual_midcen_endcen = residuals(midcen_endcen_mod),
+                  
+                  scaled_predicted_hist_midcen = scale(predict(hist_midcen_mod)),
+                  scaled_residual_hist_midcen = scale(residuals(hist_midcen_mod)),
+                  scaled_predicted_hist_endcen = scale(predict(hist_endcen_mod)),
+                  scaled_residual_hist_endcen =  scale(residuals(hist_endcen_mod)),
+                  scaled_predicted_midcen_endcen = scale(predict(midcen_endcen_mod)),
+                  scaled_residual_midcen_endcen =  scale(residuals(midcen_endcen_mod)),
+                  scaled_PC1_historic = scale(factors$PC1_historic))
+
+#running an lm between scaled_predicted_hist_midcen and scaled_predicted_hist_endcen bc this is the line in p1, and want slope to extend the line
+bestfit <-lm(factors2$scaled_predicted_hist_endcen ~ factors2$scaled_predicted_hist_midcen)
+
+intercept <- coef(bestfit)[1]
+slope <- coef(bestfit)[2]
+
+#trying to make labels onle for points a certain distance away from line
+factors3 <- factors2 %>%
+  mutate(dist_to_line = abs(slope * 
+                              (scaled_predicted_hist_midcen+scaled_residual_hist_midcen) - 
+                              (scaled_predicted_hist_endcen+scaled_residual_hist_endcen)) + 
+                              intercept / sqrt(slope^2 + (-1)^2),
+         label = case_when(dist_to_line > 1.3 ~ SHORTNAME,
+                           abs(scaled_predicted_hist_midcen+scaled_residual_hist_midcen) > 1.5 &
+                            abs(scaled_predicted_hist_endcen+scaled_residual_hist_endcen) > 1.5 ~ SHORTNAME,
+                           .default = NA))
+
+
+#historic vs midcen residual plot - added scaled predicted to scaled residual
+p1 <- ggplot(factors2, aes(x = (scaled_predicted_hist_midcen+scaled_residual_hist_midcen), 
+                    y = (scaled_predicted_hist_endcen+scaled_residual_hist_endcen))) +
+  geom_point(aes(color = region)) +  
+  geom_abline(slope = slope, intercept = intercept,
+            linewidth = 1) +
+  geom_hline(yintercept = 0, color = "gray") +
+  geom_vline(xintercept = 0, color = "gray")  +
+  ggtitle("Mid century and End century PC1 residuals with fitted model line") +
+  geom_text_repel(aes(label = label, color = region), size = 2.5) +
+  theme_bw()
+
+#historic vs midcen residual plot - just scaled residual
+p1.5 <- ggplot(factors2, aes(x = scaled_residual_hist_midcen, 
+                    y = scaled_residual_hist_endcen)) +
+  geom_point(aes(color = region)) +  
+  geom_line(aes(x = scaled_predicted_hist_midcen, 
+                y = scaled_predicted_hist_endcen),
+            linewidth = 1) +
+  geom_hline(yintercept = 0, color = "gray") +
+  geom_vline(xintercept = 0, color = "gray")  +
+  ggtitle("Mid century and End century PC1 residuals relative to historic plotted with fitted model line") +
+  theme_bw()
+
+
+#hist, midcen, endcen plot - not scaled
+p2 <- ggplot(factors3, aes(x = PC1_historic)) +
+  #historic
+  geom_point(aes(y = PC1_historic), color = "red") +  
+  geom_line(aes(y = PC1_historic), color = "red") +
+  #midcen
+  geom_point(aes(y = (PC1_historic+residual_hist_midcen)), color = "blue") +
+  geom_line(aes(y = predicted_hist_midcen), color = "blue") +
+  #endcen
+  geom_point(aes(y = (PC1_historic+residual_hist_endcen)), color = "green") +
+  geom_line(aes(y = predicted_hist_endcen), color = "green") +
+
+  geom_hline(yintercept = 0, color = "gray") +
+  geom_vline(xintercept = 0, color = "gray")  +
+  ggtitle("Historic vs. mid century PC1 residuals plotted with fitted model line ") +
+  theme_bw()
+
+
+
+
 ```
 
 ## Heatmaps by variable
@@ -767,8 +870,12 @@ CA_shp <- st_read(here("./data/rawdata/shp/CA_Counties/CA_Counties_TIGER2016.shp
                           palette = "YlOrRd", diff = FALSE){
   
   #converting df to spatial data format
-  anom_points <- st_as_sf((mpa_summary_df %>% filter(period == periodt)), 
-                          coords = c("degx","degy"))
+  anom_points <- st_as_sf(
+    mpa_summary_df %>% filter(period == periodt),
+    coords = c("degx","degy"),
+    crs = 4326) %>%
+    st_transform(st_crs(CA_shp))
+                          
   #creating period diff df: calculating diff btwn time points for given sumstat
   period_diff <- temp_mpa_summary %>%
                     pivot_wider(names_from = period,
@@ -778,7 +885,8 @@ CA_shp <- st_read(here("./data/rawdata/shp/CA_Counties/CA_Counties_TIGER2016.shp
                            end_hist_diff = endcen - historic,
                            end_mid_diff = endcen - midcen)
   #converting period diff df to spatial data format
-  period_diff_anom_points <- st_as_sf(period_diff,coords = c("degx","degy"))
+  period_diff_anom_points <- st_as_sf(period_diff,coords = c("degx","degy"), crs = 4326) %>%
+    st_transform(st_crs(CA_shp))
   
   #finding equal interval breaks based on all time periods
   all_breaks <- classInt::classIntervals(mpa_summary_df[[sumstat]], 8, "equal")
@@ -788,11 +896,14 @@ CA_shp <- st_read(here("./data/rawdata/shp/CA_Counties/CA_Counties_TIGER2016.shp
    #if diff parameter is false: create regular maps of sumstat
     if (diff == FALSE){
       tm_shape(CA_shp) + #basemap
-        tm_fill(col = "#ccebc5") +
+        tm_polygons(fill = "#ccebc5", lwd = 0) +
         
         tm_shape(anom_points) +
-        tm_dots(col = sumstat, palette = palette, size = 0.2, 
-                breaks = all_breaks[["brks"]]) +
+        
+        tm_dots(fill = sumstat, size = 0.2,
+                fill.scale = tm_scale_intervals(
+                  values = palette,
+                  breaks = all_breaks[["brks"]])) +
         
         tm_layout(bg.color = "#a6cee3",
                   legend.title.size = 1,
@@ -802,11 +913,13 @@ CA_shp <- st_read(here("./data/rawdata/shp/CA_Counties/CA_Counties_TIGER2016.shp
    } else {
      #mid-hist diff
      mid_hist <- tm_shape(CA_shp) + #basemap
-       tm_fill(col = "#ccebc5") +
+       tm_polygons(fill = "#ccebc5", lwd = 0) +
        
        tm_shape(period_diff_anom_points) +
-       tm_dots(col = "mid_hist_diff", palette = palette, size = 0.2, 
-               breaks = all_diff_breaks[["brks"]]) +
+       tm_dots(fill = "mid_hist_diff", size = 0.2,
+               fill.scale = tm_scale_intervals(
+                  values = palette,
+                  breaks = all_diff_breaks[["brks"]])) +
        
        tm_layout(bg.color = "#a6cee3",
                  legend.title.size = 1,
@@ -814,11 +927,13 @@ CA_shp <- st_read(here("./data/rawdata/shp/CA_Counties/CA_Counties_TIGER2016.shp
      
      #end-hist diff
      end_hist <- tm_shape(CA_shp) + #basemap
-       tm_fill(col = "#ccebc5") +
+       tm_polygons(fill = "#ccebc5", lwd = 0) +
        
        tm_shape(period_diff_anom_points) +
-       tm_dots(col = "end_hist_diff", palette = palette, size = 0.2, 
-               breaks = all_diff_breaks[["brks"]]) +
+       tm_dots(fill = "end_hist_diff", size = 0.2,
+               fill.scale = tm_scale_intervals(
+                  values = palette,
+                  breaks = all_diff_breaks[["brks"]])) +
        
        tm_layout(bg.color = "#a6cee3",
                  legend.title.size = 1,
@@ -826,12 +941,14 @@ CA_shp <- st_read(here("./data/rawdata/shp/CA_Counties/CA_Counties_TIGER2016.shp
      
      #end-mid diff
       end_mid <- tm_shape(CA_shp) + #basemap
-       tm_fill(col = "#ccebc5") +
+       tm_polygons(fill = "#ccebc5", lwd = 0) +
        
        tm_shape(period_diff_anom_points) +
-       tm_dots(col = "end_mid_diff", palette = palette, size = 0.2, 
-               breaks = all_diff_breaks[["brks"]]) +
-       
+       tm_dots(fill = "end_mid_diff", size = 0.2, 
+               fill.scale = tm_scale_intervals(
+                  values = palette,
+                  breaks = all_diff_breaks[["brks"]])) +
+
        tm_layout(bg.color = "#a6cee3",
                  legend.title.size = 1,
                  legend.text.size = .8) 
@@ -868,6 +985,11 @@ make_anom_map(temp_mpa_summary, sumstat = "meanannual_days_abovethresh",periodt 
 make_anom_map(temp_mpa_summary, "meanannual_avg_temp_abovethresh", "historic")
 make_anom_map(temp_mpa_summary, "meanannual_avg_temp_abovethresh","midcen") 
 make_anom_map(temp_mpa_summary, "meanannual_avg_temp_abovethresh", "endcen")
+
+
+
+
+
 ```
 
 ##### Difference in heat events: change between historical and future time periods
@@ -881,7 +1003,7 @@ make_anom_map(temp_mpa_summary, "meanannual_avg_temp_abovethresh", "endcen")
 #| - "Difference between endcen and historic avg days above threshold in a yr"
 #| - "Difference between endcen and midcen avg days above threshold in a yr"
 
-make_anom_map(temp_mpa_summary, sumstat = "meanannual_days_abovethresh",period = "historic",diff = TRUE)
+make_anom_map(temp_mpa_summary, "meanannual_days_abovethresh", "historic",diff = TRUE)
 
 ```
 
