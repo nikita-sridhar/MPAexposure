@@ -84,12 +84,10 @@ Severity-intensity-duration of events
 
 Since multiple stressors will co-occur, it is important to consider exposure to multiple simultaneous events.
 
-::: {#layout-ncol = \"3\"}
-![](mpaexposure_files/figure-html/plot_multi_event_northernCA-1.png)
+::: {#layout-ncol = "3"} ![](mpaexposure_files/figure-html/plot_multi_event_northernCA-1.png)
 
 ![](mpaexposure_files/figure-html/plot_multi_event_northernCA-2.png)
 
-![](mpaexposure_files/figure-html/plot_multi_event_northernCA-3.png)
-:::
+![](mpaexposure_files/figure-html/plot_multi_event_northernCA-3.png) :::
 
 There is low to no co-occurrence of stressors (any combination of pH, T, or DO events) in historical time periods, few occurrences in northern CA in mid century (and low or none in other regions), and extremely high occurrences across regions in the end century time period.

@@ -284,7 +284,7 @@ sum <- mpa %>%
                         high10 = ~quantile(.x,0.9)))) %>%
   
   # to get to scale of one row per mpa
-  select(-...1, -Temp, -pH, -DO, -julianday, -Year, -Month, -Day) %>%
+  select(-...1, -Temp, -pH, -DO, -julianday, -Year, -Month, -Day, -Date) %>%
   distinct(File, .keep_all = TRUE) %>% ungroup()
 
 ```
@@ -334,6 +334,35 @@ make_pca <- function(df, periodt){
 make_pca(sum, "historic")
 make_pca(sum, "midcen")
 make_pca(sum, "endcen") #need to rotate by changing sumsub to sumsub[,-1] inside prcomp
+
+```
+
+```{r}
+#for pete - PCA with time periods on same plot
+
+  sum_edit <- sum %>%
+    mutate(region_period = paste(region, "_", period))
+  
+  sumsub <- sum_edit %>% select(-OBJECTID,-NAME, -File, -SHORTNAME, -degx, 
+                                  -degy, -region, -period, -region_period) 
+  
+  #only endcen time period's pc axis needs to be rotated 
+
+  pca <- prcomp(sumsub, scale = TRUE)
+
+  
+  fviz_pca_biplot(pca, repel = TRUE,
+                  col.var = "black",
+                  col.ind = sum$region,
+                  shape
+                  geom = "text",
+                  label ="var",
+                  labelsize = 3,
+                  addEllipses = TRUE) +
+    geom_point(aes(shape = sum$period, color = sum$region))
+    
+
+  
 ```
 
 ## Heatmaps by variable

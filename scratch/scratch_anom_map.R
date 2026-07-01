@@ -97,7 +97,81 @@ make_anom_map(temp_mpa_summary, "meanannual_days_abovethresh", "historic", diff 
 make_anom_map(temp_mpa_summary, "annual_days_abovethresh", "midcen")
 make_anom_map(temp_mpa_summary, "annual_days_abovethresh", "endcen")
 
+#######################################################################
+#anom map without the function - mainly for difference map used in MS
+#######################################################################
 
+CA_shp <- st_read(here("./data/rawdata/shp/CA_Counties/CA_Counties_TIGER2016.shp"))
 
+  #converting df to spatial data format
+  anom_points <- st_as_sf(
+    temp_mpa_summary %>% filter(period == "historic"),
+    coords = c("degx","degy"),
+    crs = 4326) %>%
+    st_transform(st_crs(CA_shp))
+  
+  #creating period diff df: calculating diff btwn time points for given sumstat
+  period_diff <- pH_mpa_summary %>%
+    pivot_wider(names_from = period,
+                values_from = meanannual_days_belowthresh,
+                id_cols = c(File, degx, degy)) %>%
+    mutate(mid_hist_diff = midcen - historic,
+           end_hist_diff = endcen - historic,
+           end_mid_diff = endcen - midcen)
+  #converting period diff df to spatial data format
+  period_diff_anom_points <- st_as_sf(period_diff,coords = c("degx","degy"), crs = 4326) %>%
+    st_transform(st_crs(CA_shp))
+  
+  #finding equal interval breaks based on all time periods
+  all_breaks <- classInt::classIntervals(pH_mpa_summary[["meanannual_days_belowthresh"]], 8, "equal")
+  all_diff_breaks <- pivot_longer(period_diff, c(mid_hist_diff,end_hist_diff,end_mid_diff))
+  all_diff_breaks <- classInt::classIntervals(all_diff_breaks$value, 10, "equal")
+  
+    #mid-hist diff
+    mid_hist <- tm_shape(CA_shp) + #basemap
+      tm_polygons(fill = "#ccebc5", lwd = 0) +
+      
+      tm_shape(period_diff_anom_points) +
+     
+       tm_dots(fill = "mid_hist_diff", size = 0.2,
+              fill.scale = tm_scale_intervals(
+                values = "YlOrRd",
+                breaks = all_diff_breaks[["brks"]])) +
+      
+      tm_layout(bg.color = "#a6cee3",
+                legend.title.size = 1,
+                legend.text.size = .8) 
+    
+    mid_hist
+    
+    #end-hist diff
+    end_hist <- tm_shape(CA_shp) + #basemap
+      tm_polygons(col = "#ccebc5") +
+      
+      tm_shape(period_diff_anom_points) +
+      tm_dots(fill = "end_hist_diff", size = 0.2,
+              fill.scale = tm_scale_intervals(
+                values = "YlOrRd",
+                breaks = all_diff_breaks[["brks"]])) +
+      
+      tm_layout(bg.color = "#a6cee3",
+                legend.title.size = 1,
+                legend.text.size = .8)
+    
+    #end-mid diff
+    end_mid <- tm_shape(CA_shp) + #basemap
+      tm_polygons(col = "#ccebc5") +
+      
+      tm_shape(period_diff_anom_points) +
+      tm_dots(fill = "end_mid_diff", size = 0.2, 
+              fill.scale = tm_scale_intervals(
+                values = "YlOrRd",
+                breaks = all_diff_breaks[["brks"]])) +
+      
+      tm_layout(bg.color = "#a6cee3",
+                legend.title.size = 1,
+                legend.text.size = .8) 
+    
 
+    
  

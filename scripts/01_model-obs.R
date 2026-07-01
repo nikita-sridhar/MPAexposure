@@ -14,7 +14,7 @@ rm(light)
 
 #model setup
 mod <- mod %>%
-  rename(dataset_id = dataset,
+  rename(dataset_id = File,
          mod_T = T_surf,
          mod_pH = pH_surf,
          mod_DO = DO_surf) %>%
@@ -22,10 +22,10 @@ mod <- mod %>%
   select(dataset_id, time_utc, mod_T, mod_pH, mod_DO) %>%
   #adding regions
   mutate("region" = case_when(
-    dataset_id %in% c("7","14","kristy1") ~ "Channel Islands",
-    dataset_id %in% c("19","kristy4") ~ "Central CA",
-    dataset_id %in% c("30", "31","44","kristy2","kristy3") ~ "Southern CA",
-    dataset_id %in% c("45","56","kristy5","kristy6") ~ "Northern CA"
+    dataset_id %in% c("tphdo_sta_7.csv","tphdo_sta_14.csv","tphdo_sta_kristy1.csv") ~ "Channel Islands",
+    dataset_id %in% c("tphdo_sta_19.csv","tphdo_sta_kristy4.csv") ~ "Central CA",
+    dataset_id %in% c("tphdo_sta_30.csv", "tphdo_sta_31.csv","tphdo_sta_44.csv","tphdo_sta_kristy2.csv","tphdo_sta_kristy3.csv") ~ "Southern CA",
+    dataset_id %in% c("tphdo_sta_45.csv","tphdo_sta_56.csv","tphdo_sta_kristy5.csv","tphdo_sta_kristy6.csv") ~ "Northern CA"
   ))
 
 #obs setup
