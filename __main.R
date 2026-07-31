@@ -23,6 +23,8 @@ source(here::here("./scripts/00_mergecsv.R"))
 
 #2 - Model-obs comparison-------------------------------------------------------
 source(here::here("./scripts/01_model-obs.R"))
+rm(mod)
+rm(obs)
 
 #3 - Future exposure analysis --------------------------------------------------
 source(here::here("./reports/mpaexposure.qmd"))

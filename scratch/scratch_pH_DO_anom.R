@@ -197,3 +197,75 @@ pH_all_events <- left_join(events, pH_event_summary,
                            by = c("File", "Date", "Year", "NAME", "pH", "period", 
                                   "degx", "degy", "julianday", "is_pH_low", "pH_event"))
 
+
+
+####################################################################
+#7/24/26: trying to make no events a 0 id so it shows up on the map
+
+events <- mpa %>%
+  group_by(period) %>%
+  select(File, Date, Year,NAME, pH, DO, period, degx, degy, julianday) %>%
+  mutate(is_pH_low = pH < 7.75,
+         pH_event_id = ifelse(is_pH_low == "FALSE", 0, label_events(is_pH_low)),
+         is_DO_low = DO < 4.6,
+         DO_event_id = ifelse(is_DO_low == "FALSE", 0, label_events(is_DO_low)),
+         is_pH_and_DO_low = ifelse(is_pH_low == TRUE & is_DO_low == TRUE, TRUE, FALSE),
+         pH_and_DO_event_id = label_events(is_pH_and_DO_low)) 
+
+#pH event summary
+pH_event_summary <- events %>%
+  select(-DO_event_id, -DO, -is_DO_low, -is_pH_and_DO_low, -pH_and_DO_event_id) %>%
+  
+  #event scale (only calculate summary stats when an event took place)
+  group_by(File, pH_event_id, period) %>% 
+  mutate(duration_days = if_else(is_pH_low == "TRUE", n(), 0),
+         event_begin = if_else(duration_days > 1, min(Date), NA_Date_),
+         event_mean = if_else(duration_days > 1, mean(pH), NA), 
+         intensity = if_else(duration_days > 1, 7.75 - event_mean, NA),
+         severity = if_else(duration_days > 1, intensity*duration_days, NA)) %>%
+  ungroup() 
+
+#filtered dataset with events > 2 days (for mpa scale calculations)
+event_2daysplus <- pH_event_summary %>%
+  filter(duration_days > 1) %>%
+  group_by(File, period) %>%
+  mutate(mpas_total_num_event = length(unique(pH_event_id)),
+         mpas_mean_event_duration = mean(duration_days),  
+         mpas_max_event_duration = max(duration_days),
+         mpas_mean_event_mean_pH = mean(event_mean), 
+         mpas_mean_event_intensity = mean(intensity)) %>%
+  ungroup() 
+
+#since an event can span multiple years, annual sum is n() in that year (not duration days since that can show duration spanning multiple years)
+annual_event_counts <- event_2daysplus %>%
+  group_by(File, Year, period) %>%
+  summarise(annual_days_belowthresh = n(), 
+         annual_avg_ph_belowthresh = mean(pH, na.rm = TRUE),
+         .groups = "drop") %>%
+  
+  group_by(File, period) %>%
+  summarise(avg_annual_days_belowthresh = mean(annual_days_belowthresh),
+            .groups = "drop") 
+
+
+
+#used later
+pH_all_events <- left_join(events, pH_event_summary,
+                           by = c("File", "Date", "Year", "NAME", "pH", 
+                                  "period", "degx", "degy", "julianday",
+                                  "is_pH_low", "pH_event"))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

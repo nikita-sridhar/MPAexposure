@@ -59,6 +59,14 @@ obs$obs_pH[is.nan(obs$obs_pH)]<-NA
 obs$obs_DO[is.nan(obs$obs_DO)]<-NA
 
 
+obs_summary <- obs %>%
+  group_by(dataset_id,region) %>%
+  summarise(m = mean(region),
+            temp_count = sum(!is.na(obs_T)), #num of observations
+            pH_count = sum(!is.na(obs_pH)),
+            DO_count = sum(!is.na(obs_DO)))
+
+
 #pdf - NorCA
 norcal_temp <- ggplot() + 
   geom_density(data = mod%>%filter(region == "Northern CA"), fill = "green", alpha = 0.5, aes(mod_T)) +

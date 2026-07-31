@@ -691,10 +691,10 @@ events <- mpa %>%
   group_by(period) %>%
   select(File, Date, Year,NAME, pH, DO, period, degx, degy, julianday) %>%
   mutate(is_pH_low = pH < 7.75,
-         pH_event = ifelse(is_pH_low == "FALSE", 0, label_events(is_pH_low)),
+         pH_event = label_events(is_pH_low),
         
          is_DO_low = DO < 4.6,
-         DO_event = ifelse(is_DO_low == "FALSE", 0, label_events(is_DO_low)),
+         DO_event = label_events(is_DO_low),
          
          is_pH_and_DO_low = ifelse(is_pH_low == TRUE & 
                                      is_DO_low == TRUE, TRUE, FALSE),
@@ -1751,3 +1751,4 @@ make_DO_time_series("historic","Anacapa Island FMR", title = "Historic DO at Ana
 make_DO_time_series("midcen","Anacapa Island FMR", title = "Midcen DO at Anacapa Island FMR") 
 make_DO_time_series("endcen","Anacapa Island FMR", title = "Endcen DO at Anacapa Island FMR")
 ```
+
