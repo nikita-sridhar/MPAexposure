@@ -351,6 +351,14 @@ sumsub <- sum %>%
 # PCA on all observations
 pca_all <- prcomp(sumsub, scale. = TRUE)
 
+#varimax rotation
+n_comp <- 2
+raw_loadings <- pca_all$rotation[, 1:n_comp]
+varimax_res  <- varimax(raw_loadings)
+pca_all$rotation[, 1:n_comp] <- varimax_res$loadings
+scaled_data <- scale(sumsub)
+pca_all$x[, 1:n_comp] <- scaled_data %*% varimax_res$loadings
+
 # Keep first 3 PCs
 scores <- as.data.frame(pca_all$x[,1:3])
 
@@ -536,6 +544,7 @@ seg_mid_end <- cluster_table %>%
 #pca biplot
 p <- fviz_pca_biplot(
   pca_all,
+  axes = c(1,2), #plots varimax rotated
   repel = TRUE,
   col.var = "black",
   col.ind = sum$region,
@@ -546,6 +555,10 @@ p <- fviz_pca_biplot(
   invisible = "quali"
 ) 
 p
+
+
+
+
 
 #labeling cluster colors
 cluster_cols <- c(
