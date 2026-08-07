@@ -561,7 +561,7 @@ p +
 
 ```{r}
 #saving factor scores from pca of whole dataset (above chunk) and only select PC1 (most explanatory)
-factors <- as.data.frame(pca$x) %>%
+factors <- as.data.frame(pca_all$x) %>%
   select("PC1") %>%
 #I think the rows correspond to each individual mpa for a certain time period, corresponds to sum, need to merge this and only select pc1 since its most explanatory (but need to confirm this)
   cbind(sum) %>%
@@ -580,81 +580,46 @@ midcen_endcen_mod <- lm( PC1_endcen ~ PC1_midcen, data = factors)
 summary(hist_midcen_mod)
 summary(hist_endcen_mod)
 
-#saving residuals and fitted values. - scaled so wrt 0
-factors2 <- factors %>% mutate(predicted_hist_midcen = predict(hist_midcen_mod),
-                  residual_hist_midcen = residuals(hist_midcen_mod),
-                  predicted_hist_endcen = predict(hist_endcen_mod),
-                  residual_hist_endcen = residuals(hist_endcen_mod),
-                  predicted_midcen_endcen = predict(midcen_endcen_mod),
-                  residual_midcen_endcen = residuals(midcen_endcen_mod),
-                  
-                  scaled_predicted_hist_midcen = scale(predict(hist_midcen_mod)),
-                  scaled_residual_hist_midcen = scale(residuals(hist_midcen_mod)),
-                  scaled_predicted_hist_endcen = scale(predict(hist_endcen_mod)),
-                  scaled_residual_hist_endcen =  scale(residuals(hist_endcen_mod)),
-                  scaled_predicted_midcen_endcen = scale(predict(midcen_endcen_mod)),
-                  scaled_residual_midcen_endcen =  scale(residuals(midcen_endcen_mod)),
-                  scaled_PC1_historic = scale(factors$PC1_historic))
+#saving residuals and fitted values. - scaled so wrt 0 (not sure if need to scale or not)
+factors2 <- factors %>% 
+  mutate(residual_hist_midcen = residuals(hist_midcen_mod),
+         residual_hist_endcen = residuals(hist_endcen_mod),
+         residual_midcen_endcen = residuals(midcen_endcen_mod),
+         scaled_residual_hist_midcen = as.numeric(scale(residuals(hist_midcen_mod))),
+         scaled_residual_hist_endcen =  as.numeric(scale(residuals(hist_endcen_mod))),
+         scaled_residual_midcen_endcen =  as.numeric(scale(residuals(midcen_endcen_mod))),
+         scaled_PC1_historic = scale(factors$PC1_historic)) 
+  
+
 
 #running an lm between scaled_predicted_hist_midcen and scaled_predicted_hist_endcen bc this is the line in p1, and want slope to extend the line
-bestfit <-lm(factors2$scaled_predicted_hist_endcen ~ factors2$scaled_predicted_hist_midcen)
+bestfit <-lm(factors2$scaled_residual_hist_endcen ~ factors2$scaled_residual_hist_midcen)
 
-intercept <- coef(bestfit)[1]
-slope <- coef(bestfit)[2]
+intercept <- as.numeric(coef(bestfit)[1])
+slope <- as.numeric(coef(bestfit)[2])
 
-#trying to make labels onle for points a certain distance away from line
-#factors3 <- factors2 %>%
-  #mutate(dist_to_line = abs(slope * 
-                              #(scaled_predicted_hist_midcen+scaled_residual_hist_midcen) - 
-                              #(scaled_predicted_hist_endcen+scaled_residual_hist_endcen)) + 
-                              #intercept / sqrt(slope^2 + (-1)^2),
-        # label = case_when(dist_to_line > 1.3 ~ SHORTNAME,
-                         #  abs(scaled_predicted_hist_midcen+scaled_residual_hist_midcen) > 1.5 &
-                       #     abs(scaled_predicted_hist_endcen+scaled_residual_hist_endcen) > 1.5 ~ SHORTNAME,
-                          # .default = NA))
+factors3 <- factors2 %>%
+  mutate(dist_to_line = abs(slope * scaled_residual_hist_midcen - 
+                              scaled_residual_hist_endcen + intercept)
+                        / sqrt(slope^2 + (-1)^2)) %>%
+  mutate(label = case_when(dist_to_line > 1.3 ~ SHORTNAME, 
+                           abs(scaled_residual_hist_midcen) > 1.5 & 
+                           abs(scaled_residual_hist_endcen) > 1.5 ~ 
+                          SHORTNAME, .default = NA))
 
 
 #historic vs midcen residual plot - added scaled predicted to scaled residual
-p1 <- ggplot(factors2, aes(x = (scaled_predicted_hist_midcen+scaled_residual_hist_midcen), 
-                    y = (scaled_predicted_hist_endcen+scaled_residual_hist_endcen))) +
+ggplot(factors3, aes(x = scaled_residual_hist_midcen, y = scaled_residual_hist_endcen)) +
   geom_point(aes(color = region)) +  
-  geom_abline(slope = slope, intercept = intercept,
-            linewidth = 1) +
+  geom_abline(slope = slope, intercept = intercept, linewidth = 1) +
   geom_hline(yintercept = 0, color = "gray") +
   geom_vline(xintercept = 0, color = "gray")  +
   ggtitle("Mid century and End century PC1 residuals with fitted model line") +
   geom_text_repel(aes(label = label, color = region), size = 2.5) +
   theme_bw()
 
-#historic vs midcen residual plot - just scaled residual
-p1.5 <- ggplot(factors2, aes(x = scaled_residual_hist_midcen, 
-                    y = scaled_residual_hist_endcen)) +
-  geom_point(aes(color = region)) +  
-  geom_line(aes(x = scaled_predicted_hist_midcen, 
-                y = scaled_predicted_hist_endcen),
-            linewidth = 1) +
-  geom_hline(yintercept = 0, color = "gray") +
-  geom_vline(xintercept = 0, color = "gray")  +
-  ggtitle("Mid century and End century PC1 residuals relative to historic plotted with fitted model line") +
-  theme_bw()
 
 
-#hist, midcen, endcen plot - not scaled
-p2 <- ggplot(factors2, aes(x = PC1_historic)) +
-  #historic
-  geom_point(aes(y = PC1_historic), color = "red") +  
-  geom_line(aes(y = PC1_historic), color = "red") +
-  #midcen
-  geom_point(aes(y = (PC1_historic+residual_hist_midcen)), color = "blue") +
-  geom_line(aes(y = predicted_hist_midcen), color = "blue") +
-  #endcen
-  geom_point(aes(y = (PC1_historic+residual_hist_endcen)), color = "green") +
-  geom_line(aes(y = predicted_hist_endcen), color = "green") +
-
-  geom_hline(yintercept = 0, color = "gray") +
-  geom_vline(xintercept = 0, color = "gray")  +
-  ggtitle("Historic vs. mid century PC1 residuals plotted with fitted model line ") +
-  theme_bw()
 
 
 
