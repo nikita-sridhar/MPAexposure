@@ -50,6 +50,7 @@ library(stringr)
 library(heatmaply)
 library(ggpubr)
 library(ggrepel)
+library(flextable)
 ```
 
 ```{r}
@@ -294,62 +295,266 @@ sum <- mpa %>%
 PCA of all summary stats (mean, lower 10th percentile, upper 10th percentile, seasonal SD, event SD) clustered by regions within specified time period.
 
 ```{r}
-#| label: pca_function
+# Remove metadata
+sumsub <- sum %>%
+  select(-OBJECTID, -NAME, -File, -SHORTNAME,
+         -degx, -degy, -region, -period)
 
+# PCA on all observations
+pca_all <- prcomp(sumsub, scale. = TRUE)
 
-make_pca <- function(df, periodt){
-  sum_period <- df %>% filter(period == periodt) 
-  sumsub <- sum_period %>% select(-OBJECTID,-NAME, -File, -SHORTNAME, -degx, 
-                                  -degy, -region, -period) 
-  
-  #only endcen time period's pc axis needs to be rotated 
-  if (periodt == "endcen"){
-  pca <- prcomp(sumsub[,-1], scale = TRUE)
-  } else {
-  pca <- prcomp(sumsub, scale = TRUE)
-  }
+#varimax rotation
+n_comp <- 2
+raw_loadings <- pca_all$rotation[, 1:n_comp]
+varimax_res  <- varimax(raw_loadings)
+pca_all$rotation[, 1:n_comp] <- varimax_res$loadings
+scaled_data <- scale(sumsub)
+pca_all$x[, 1:n_comp] <- scaled_data %*% varimax_res$loadings
 
-  
-  fviz_pca_biplot(pca, repel = TRUE,
-                  col.var = "black",
-                  col.ind = sum_period$region,
-                  label ="var",
-                  labelsize = 3,
-                  addEllipses = TRUE) 
-  #fviz_pca_ind(pca, label="none", habillage=sum_period$region,
-               #addEllipses=TRUE,  col.ind = sum_period$region)
-  
-}
+#Keep first 3 PCs
+scores <- as.data.frame(pca_all$x[,1:3])
+
+#Add metadata back
+scores$MPA <- sum$NAME
+scores$MPA_num <- sum$OBJECTID
+scores$region <- sum$region
+scores$period <- sum$period
+
 ```
 
-```{}
-```
+Cluster analysis
 
 ```{r}
-#for pete - PCA with time periods on same plot
+#deciding how many clusters to use (not too sure about this)
+fviz_nbclust(scores[,1:3], FUNcluster=kmeans, k.max = 8) 
 
-  sum_edit <- sum %>%
-    mutate(region_period = paste(region, "_", period))
-  
-  sumsub <- sum_edit %>% select(-OBJECTID,-NAME, -File, -SHORTNAME, -degx, 
-                                  -degy, -region, -period, -region_period) 
-  
-  #only endcen time period's pc axis needs to be rotated 
+#cluster: first set seed and run k means
+set.seed(123)
+km <- kmeans(scores[,1:2], centers = 4, nstart = 50)
+scores$cluster <- factor(km$cluster)
 
-  pca <- prcomp(sumsub, scale = TRUE)
+cluster_table <- scores %>%
+  select(MPA, MPA_num, region, period, cluster) %>%
+  pivot_wider(names_from = period, values_from = cluster) %>%
+  mutate(region = recode(region, "channel" = "Channel Islands","norca" = "Northern CA",
+                         "socal" = "Southern CA", "centralca" = "Central CA"))
 
+#count cluster changes
+cluster_table$n_changes <-
+  (cluster_table$historic != cluster_table$midcen) +
+  (cluster_table$midcen != cluster_table$endcen)
+
+#visualizing summary for cluster changes
+general_cluster_table_summary <- cluster_table %>%
+  group_by(region) %>%
+  summarise(
+    total_MPAs = n(),
+    num_MPAs_changed = sum(n_changes > 0),
+    mean_changes = mean(n_changes),
+    .groups = "drop")
+
+#making pretty table
+ft_general_cluster_table <- flextable(general_cluster_table_summary) %>%
+  set_header_labels(
+    region = "Region", total_MPAs = "Total\nMPAs", num_MPAs_changed = "MPAs\nChanged",mean_changes = "Mean Cluster\nChanges") %>%
+  colformat_double(j = "mean_changes", digits = 2) %>%
+  theme_booktabs() %>%
+  bold(part = "header") %>%
+  align(align = "center", j = c("total_MPAs", "num_MPAs_changed", "mean_changes"),
+        part = "all") %>%
+  align(align = "left",j = "region",
+        part = "all") %>%
+  autofit() %>%
+  fontsize(size = 10, part = "all")
+ft_general_cluster_table
+
+
+mpa_cluster_table_summary <- scores %>%
+  select(MPA, MPA_num, region, period, cluster) %>%
+  pivot_wider(
+    names_from = period,
+    values_from = cluster,
+    names_glue = "{period}_cluster"
+  ) %>%
+  # Reorder columns
+  select(region, historic_cluster, midcen_cluster, endcen_cluster, MPA, MPA_num) %>%
+  # Keep only MPAs that changed cluster
+  filter(historic_cluster != midcen_cluster | historic_cluster != endcen_cluster 
+         |midcen_cluster != endcen_cluster) %>%
+  # Collapse MPAs with identical trajectories
+  group_by(region,historic_cluster,midcen_cluster,endcen_cluster) %>%
+  summarise(MPAs = paste(MPA, collapse = ", "),MPA_nums = paste(MPA_num, collapse = ", "),
+    .groups = "drop")  %>%
+  arrange(region,historic_cluster,midcen_cluster,endcen_cluster)
+
+#making a pretty table
+ft_mpa_cluster_table <- flextable(mpa_cluster_table_summary) %>%
+  set_header_labels(
+    region = "Region",
+    historic_cluster = "Historic\nCluster",
+    midcen_cluster = "Mid-century\nCluster",
+    endcen_cluster = "End-century\nCluster",
+    MPAs = "MPAs",
+    MPA_nums = "MPA IDs"
+  ) %>%
+  theme_booktabs() %>%
+  autofit() %>%
+  align(
+    j = c("historic_cluster", "midcen_cluster", "endcen_cluster"),
+    align = "center",
+    part = "all"
+  ) %>%
+  align(
+    j = c("region", "MPAs", "MPA_nums"),
+    align = "left",
+    part = "all"
+  ) %>%
+  merge_v(j = "region") %>%
+  valign(j = "region", valign = "top") %>%
+  bold(part = "header") %>%
+  fontsize(size = 10, part = "all") %>%
+  width(j = "region", width = 1.2) %>%
+  width(j = c("historic_cluster", "midcen_cluster", "endcen_cluster"), width = 0.8) %>%
+  width(j = "MPAs", width = 3.8) %>%
+  width(j = "MPA_nums", width = 1.5)
+
+ft_mpa_cluster_table
+
+#ARI someway to show if clusters are similar or different?
+scores %>%
+  group_by(period) %>%
+  summarise(
+    ARI = adjustedRandIndex(region, cluster)
+  )
+```
+
+Plotting results
+
+```{r}
+#plotting
+hulls <- scores %>%
+  group_by(cluster) %>%
+  slice(chull(PC1, PC2))
+
+scores$period <- factor(scores$period, 
+                        levels = c("historic","midcen","endcen"))
+
+#adding this to draw lines for only mpas that changed clusters
+changed_mpas <- cluster_table %>%
+  filter(n_changes > 0) %>%
+  pull(MPA_num)
+
+scores_segments <- scores %>%
+  filter(MPA_num %in% changed_mpas) %>%
+  select(MPA_num, region, period, PC1, PC2) %>%
+  pivot_wider(
+    names_from = period,
+    values_from = c(PC1,PC2)
+  )
+
+#segments for plot
+seg_hist_mid <- cluster_table %>%
+  filter(historic != midcen) %>%
+  select(MPA_num) %>%
+  left_join(scores %>%
+      select(MPA_num, period, PC1, PC2, region) %>%
+      tidyr::pivot_wider(
+        names_from = period,
+        values_from = c(PC1, PC2)
+      ),
+    by = "MPA_num"
+  )
+
+seg_mid_end <- cluster_table %>%
+  filter(midcen != endcen) %>%
+  select(MPA_num) %>%
+  left_join(scores %>%
+              select(MPA_num, period, PC1, PC2, region) %>%
+              tidyr::pivot_wider(
+                names_from = period,
+                values_from = c(PC1, PC2)
+              ),
+            by = "MPA_num"
+  )
+
+#pca biplot
+p <- fviz_pca_biplot(
+  pca_all,
+  axes = c(1,2), #plots varimax rotated
+  repel = TRUE,
+  col.var = "black",
+  col.ind = sum$region,
+  pointshape = 19,
+  label = "var",
+  labelsize = 3,
+  addEllipses = FALSE,
+  invisible = "quali"
+) 
+p
+
+#labeling cluster colors
+cluster_cols <- c(
+  "1" = "#8da0cb",
+  "2" = "#66c2a5",
+  "3" = "#fc8d62",
+  "4" = "#e78ac3"
+)
+region_cols <- c(
+  "centralca" = "#fc8d62",
+  "channel" = "#66c2a5",
+  "norca" = "#8da0cb",
+  "socal" = "#e78ac3"
+)
+
+#overlaying pca biplot with the hulls from clusters
+p +
+  geom_polygon(
+    data = hulls,
+    aes(x = PC1, y = PC2, 
+        group = cluster, fill = cluster),
+    alpha = 0.3,
+    color = NA,
+    inherit.aes = FALSE
+  ) +
   
-  fviz_pca_biplot(pca, repel = TRUE,
-                  col.var = "black",
-                  col.ind = sum$region,
-                  geom = "text",
-                  label ="var",
-                  labelsize = 3,
-                  addEllipses = TRUE) +
-    geom_point(aes(shape = sum$period, color = sum$region))
+  geom_segment(
+    data = seg_hist_mid,
+    aes(x = PC1_historic,
+        y = PC2_historic,
+        xend = PC1_midcen,
+        yend = PC2_midcen,
+        color = region),
+    linewidth = 0.4,
+    alpha = 0.2,
+    inherit.aes = FALSE
+  ) +
+  
+  geom_segment(
+    data = seg_mid_end,
+    aes(x = PC1_midcen,
+        y = PC2_midcen,
+        xend = PC1_endcen,
+        yend = PC2_endcen,
+        color = region),
+    linewidth = 0.4,
+    alpha = 0.2,
+    inherit.aes = FALSE
+  ) +
+  
+  geom_point(
+    data = scores, 
+    aes(PC1, PC2,
+        color = region,
+        shape = period),
+    size = 2,
+    inherit.aes = FALSE
+  ) + 
+
+  scale_fill_manual(values = cluster_cols) +
+  scale_color_manual(values = region_cols) +
     
-
   
+  labs(title = "All Period MPAs")
 ```
 
 ## NMDS Plots
@@ -456,14 +661,365 @@ p2 <- ggplot(factors2, aes(x = PC1_historic)) +
 
 ```
 
-#### 
-
 ## Anomalous pH/DO/temp Event Analysis
 
 Identify pH/DO/temp anomalous events. Events for pH are defined as 2+ days where pH \< 7.75, and events for DO are 2+ days where DO \< 4.6. Events for temp defined as 2+ days where daily temp exceeds historical climatology's temp for that month + 2\* historical climatology SD.
 
-For each [event]{.underline}, the following are calculated: 1) Duration of days, 2) Date event began, 3) Mean pH/DO/T during the event, 4) Intensity of the event (threshold - event mean), 5) Severity of the event (intensity\*duration).
+Main summary statistic: difference in average number of days in a year an MPA experiences an event across time periods
 
-For each [MPA]{.underline}, the following are calculated: 1) Number of events, 2) Mean event duration, 3) Mean of average event pH/DO/T, 4) Mean event intensity, 5) Mean event severity, 6) Average number of events within a year, 7) Average annual pH/DO/T during event
+Function for labeling events:
 
-## 
+```{r}
+# Create labels for events (e.g., consecutive days with low pH or low DO) using run length encoding
+
+label_events <- function(is_event) {
+  event_rle <- rle(is_event)
+  labels <- ifelse(event_rle$values, cumsum(event_rle$values), NA)
+  rep(labels, event_rle$lengths)
+}
+```
+
+pH and DO events:
+
+```{r}
+ph_do_events <- mpa %>%
+  group_by(period) %>%
+  select(File, Date, Year,NAME, pH, DO, period, degx, degy, julianday) %>%
+  mutate(is_pH_low = pH < 7.75,
+         pH_event_id = ifelse(is_pH_low == "FALSE", NA, label_events(is_pH_low)),
+         is_DO_low = DO < 4.6,
+         DO_event_id = ifelse(is_DO_low == "FALSE", NA, label_events(is_DO_low))) 
+
+#pH event summary
+ph_do_event_summary <- ph_do_events %>%
+
+  #ph events (only calculate summary stats when an event took place)
+  #note: events with 1 day are changed to NA (bc event defined as 2+ days)
+  group_by(File, pH_event_id, period) %>% 
+  mutate(pH_duration_days = if_else(is_pH_low == "TRUE", n(), NA),
+         pH_duration_days = if_else(pH_duration_days == 1, NA, pH_duration_days), 
+         pH_event_id = if_else(pH_duration_days == 0, NA, pH_event_id),
+         pH_event_mean = if_else(pH_duration_days > 1, mean(pH, na.rm = TRUE), NA)) %>%
+  ungroup() %>%
+  
+  #do events
+  group_by(File, DO_event_id, period) %>% 
+  mutate(DO_duration_days = if_else(is_DO_low == "TRUE", n(), NA),
+         DO_duration_days = if_else(DO_duration_days == 1, NA, DO_duration_days), 
+         DO_event_id = if_else(DO_duration_days == 0, NA, DO_event_id),
+         DO_event_mean = if_else(DO_duration_days > 1, mean(DO, na.rm = TRUE), NA)) %>%
+  ungroup() 
+
+#since an event can span multiple years, annual sum is n() in that year (not duration days since that can show duration spanning multiple years)
+ph_do_annual_event_counts <- ph_do_event_summary %>%
+  #per mpa per year
+  group_by(File, Year, period) %>%
+  mutate(annual_days_below_pH_thresh = sum(!is.na(pH_event_id)),
+         annual_days_below_DO_thresh = sum(!is.na(DO_event_id))) %>%
+  ungroup() %>%
+  #per mpa
+  group_by(File, period) %>%
+  mutate(avg_annual_days_below_pH_thresh = mean(annual_days_below_pH_thresh, na.rm=TRUE),
+         avg_annual_days_below_DO_thresh = mean(annual_days_below_DO_thresh, na.rm=TRUE)) %>%
+  ungroup() %>%
+  distinct(File, NAME, degx, degy, period, avg_annual_days_below_pH_thresh, 
+           avg_annual_days_below_DO_thresh)
+```
+
+Temperature events:
+
+```{r}
+temp_events <- mpa %>%
+  
+  #first calculating reference historic climatology
+  filter(period == "historic") %>%
+  group_by(File, Month) %>%
+  summarise(histclim_Temp_mean = mean(Temp), 
+            histclim_Temp_sd = sd(Temp)) %>% #this sd is temp over all days in Jan - rather than average of each jan's SD - does it make a difference? 
+ 
+   #bringing back to scale of julian days and all time periods
+  merge(mpa, by = c("File", "Month")) %>%
+  select(File, Date, Year, NAME, Temp, period, degx, degy, julianday, histclim_Temp_mean, histclim_Temp_sd) %>%
+  
+  #labelling events
+  group_by(period) %>%
+  mutate(is_temp_high = Temp > (histclim_Temp_mean + 2*histclim_Temp_sd),
+         temp_event_id = ifelse(is_temp_high == "FALSE", NA, label_events(is_temp_high))) %>%
+  select(-histclim_Temp_mean, -histclim_Temp_sd) %>%
+         
+  #temp event summary 
+  group_by(File, temp_event_id, period) %>% 
+  mutate(temp_duration_days = if_else(is_temp_high == "TRUE", n(), NA),
+         temp_duration_days = if_else(temp_duration_days == 1, NA, temp_duration_days), 
+         temp_event_id = if_else(temp_duration_days == 0, NA, temp_event_id),
+         temp_event_mean = if_else(temp_duration_days > 1, mean(Temp, na.rm = TRUE), NA)) %>%
+  ungroup() 
+```
+
+Combining all events:
+
+```{r}
+#putting it all together
+annual_events <- temp_events %>%
+  #first finding annual averages for temp
+  #per mpa per year
+  group_by(File, Year, period) %>%
+  mutate(annual_days_above_temp_thresh = sum(!is.na(temp_event_id))) %>%
+  ungroup() %>%
+  
+  #per mpa
+  group_by(File, period) %>%
+  summarise(avg_annual_days_above_temp_thresh = mean(annual_days_above_temp_thresh, na.rm=TRUE)) %>%
+  ungroup() %>%
+  right_join(ph_do_annual_event_counts, by = c("File", "period"))
+```
+
+Plotting maps:
+
+Setting scale and legend breaks
+
+```{r}
+CA_shp <- st_read(here("./data/rawdata/shp/CA_Counties/CA_Counties_TIGER2016.shp"))
+
+make_anom_map(annual_events, "avg_annual_days_above_temp_thresh", "historic", diff = TRUE)
+
+make_anom_map <- function(mpa_summary_df, sumstat, periodt, 
+                          palette = "YlOrRd", diff = FALSE)
+  
+ 
+#converting df to spatial data format
+anom_points <- annual_events %>% 
+  st_as_sf(coords = c("degx","degy"), crs = 4326) %>%
+  st_transform(st_crs(CA_shp))
+                          
+#creating period diff df: calculating diff btwn time points for diff sumstat
+period_diff <- annual_events %>% 
+  
+  pivot_wider(names_from = period,
+              values_from = c(avg_annual_days_above_temp_thresh,
+                              avg_annual_days_below_pH_thresh,
+                              avg_annual_days_below_DO_thresh),
+              names_glue = "{period}_{.value}") %>%
+  
+  mutate(midhist_temp_days = midcen_avg_annual_days_above_temp_thresh -
+                             historic_avg_annual_days_above_temp_thresh,
+         endmid_temp_days =  endcen_avg_annual_days_above_temp_thresh -
+                             midcen_avg_annual_days_above_temp_thresh,
+         
+         midhist_pH_days = midcen_avg_annual_days_below_pH_thresh -
+                           historic_avg_annual_days_below_pH_thresh,
+         endmid_pH_days =  endcen_avg_annual_days_below_pH_thresh -
+                           midcen_avg_annual_days_below_pH_thresh,
+        
+         midhist_DO_days = midcen_avg_annual_days_below_DO_thresh -
+                           historic_avg_annual_days_below_DO_thresh,
+         endmid_DO_days =  endcen_avg_annual_days_below_DO_thresh -
+                           midcen_avg_annual_days_below_DO_thresh) %>%
+  
+  mutate(across((14:19), as.integer))
+                           
+                          
+#converting period diff df to spatial data format
+period_diff_anom_points <- st_as_sf(period_diff, coords = c("degx","degy"), crs = 4326) %>%
+                           st_transform(st_crs(CA_shp))
+  
+#finding equal interval breaks
+#instead of all_diff_breaks
+temp_diffs <- c(period_diff$midhist_temp_days, period_diff$endmid_temp_days)
+temp_breaks <- classInt::classIntervals(temp_diffs, 10, "equal")
+pH_diffs <- c(period_diff$midhist_pH_days, period_diff$endmid_pH_days)
+pH_breaks <- classInt::classIntervals(pH_diffs, 10, "equal")
+DO_diffs <- c(period_diff$midhist_DO_days, period_diff$endmid_DO_days)
+DO_breaks <- classInt::classIntervals(DO_diffs, 10, "equal")
+```
+
+Plots - diff in avg annual days crossing threshold between periods
+
+```{r}
+#Temp: mid-hist diff map
+tm_shape(CA_shp) + 
+  tm_polygons(fill = "#ccebc5", lwd = 0) + 
+  tm_shape(period_diff_anom_points) + 
+  tm_dots(fill = "midhist_temp_days", 
+          size = 0.4, 
+          fill.scale = tm_scale_intervals(values = "YlOrRd",
+                                          breaks = temp_breaks$brks)) +
+  tm_layout(bg.color = "#a6cee3") +
+  tm_title(
+    "Increase in avg annual no. days above temp threshold from historic to mid-century",
+    position = tm_pos_out("center", "top"))
+#Temp: end-mid diff
+tm_shape(CA_shp) + 
+  tm_polygons(fill = "#ccebc5", lwd = 0) + 
+  tm_shape(period_diff_anom_points) + 
+  tm_dots(fill = "endmid_temp_days", 
+          size = 0.4, 
+          fill.scale = tm_scale_intervals(values = "YlOrRd",
+                                          breaks = temp_breaks$brks)) +
+  tm_layout(bg.color = "#a6cee3") +
+  tm_title(
+    "Increase in avg annual no. days above temp threshold from mid-century to end-century",
+    position = tm_pos_out("center", "top"))
+
+
+#pH:mid-hist diff
+tm_shape(CA_shp) + 
+  tm_polygons(fill = "#ccebc5", lwd = 0) + 
+  tm_shape(period_diff_anom_points) + 
+  tm_dots(fill = "midhist_pH_days", 
+          size = 0.4, 
+          fill.scale = tm_scale_intervals(values = "YlOrRd",
+                                          breaks = pH_breaks$brks)) +
+  tm_layout(bg.color = "#a6cee3") +
+  tm_title(
+    "Increase in avg annual no. days below pH threshold from historic to mid-century",
+    position = tm_pos_out("center", "top"))
+#pH:end-mid diff
+tm_shape(CA_shp) + 
+  tm_polygons(fill = "#ccebc5", lwd = 0) + 
+  tm_shape(period_diff_anom_points) + 
+  tm_dots(fill = "endmid_pH_days", 
+          size = 0.4, 
+          fill.scale = tm_scale_intervals(values = "YlOrRd",
+                                          breaks = pH_breaks$brks)) +
+  tm_layout(bg.color = "#a6cee3") +
+  tm_title(
+    "Increase in avg annual no. days below pH threshold from mid-century to end-century",
+    position = tm_pos_out("center", "top"))
+
+
+#DO: mid-hist diff
+tm_shape(CA_shp) + 
+  tm_polygons(fill = "#ccebc5", lwd = 0) + 
+  tm_shape(period_diff_anom_points) + 
+  tm_dots(fill = "midhist_DO_days", 
+          size = 0.4, 
+          fill.scale = tm_scale_intervals(values = "YlOrRd",
+                                          breaks = DO_breaks$brks)) +
+  tm_layout(bg.color = "#a6cee3") +
+  tm_title(
+    "Increase in avg annual no. days below DO threshold from historic to mid-century",
+    position = tm_pos_out("center", "top"))
+#DO: end-mid diff
+tm_shape(CA_shp) + 
+  tm_polygons(fill = "#ccebc5", lwd = 0) + 
+  tm_shape(period_diff_anom_points) + 
+  tm_dots(fill = "endmid_DO_days", 
+          size = 0.4, 
+          fill.scale = tm_scale_intervals(values = "YlOrRd",
+                                          breaks = DO_breaks$brks)) +
+  tm_layout(bg.color = "#a6cee3") +
+  tm_title(
+    "Increase in avg annual no. days below DO threshold from mid-century to end-century",
+    position = tm_pos_out("center", "top"))
+```
+
+Plots - actual avg annual days per period and variable
+
+```{r}
+
+#setting new breaks:
+all_temp <- c(period_diff$historic_avg_annual_days_above_temp_thresh, period_diff$midcen_avg_annual_days_above_temp_thresh, period_diff$endcen_avg_annual_days_above_temp_thresh) 
+all_pH <- c(period_diff$historic_avg_annual_days_below_pH_thresh, period_diff$midcen_avg_annual_days_below_pH_thresh, period_diff$endcen_avg_annual_days_below_pH_thresh)
+all_DO <- c(period_diff$historic_avg_annual_days_below_DO_thresh, period_diff$midcen_avg_annual_days_below_DO_thresh, period_diff$endcen_avg_annual_days_below_DO_thresh)
+
+all_temp_breaks <- classInt::classIntervals(all_temp, 10, "equal")
+all_pH_breaks <- classInt::classIntervals(all_pH, 10, "equal")
+all_DO_breaks <- classInt::classIntervals(all_DO, 10, "equal")
+
+#same story as diff map
+#Temp - historic
+tm_shape(CA_shp) + 
+  tm_polygons(fill = "#ccebc5", lwd = 0) + 
+  tm_shape(period_diff_anom_points) + 
+  tm_dots(fill = "historic_avg_annual_days_above_temp_thresh", size = 0.4, 
+          fill.scale = tm_scale_intervals(values = "YlOrRd", breaks = all_temp_breaks$brks)) +
+  tm_layout(bg.color = "#a6cee3") +
+  tm_title(
+    "Historic avg annual days above temp thresh",
+    position = tm_pos_out("center", "top"))
+#Temp - midcen
+tm_shape(CA_shp) + 
+  tm_polygons(fill = "#ccebc5", lwd = 0) + 
+  tm_shape(period_diff_anom_points) + 
+  tm_dots(fill = "midcen_avg_annual_days_above_temp_thresh", size = 0.4, 
+          fill.scale = tm_scale_intervals(values = "YlOrRd", breaks = all_temp_breaks$brks)) +
+  tm_layout(bg.color = "#a6cee3") +
+  tm_title(
+    "Midcen avg annual days above temp thresh",
+    position = tm_pos_out("center", "top"))
+#Temp - endcen
+tm_shape(CA_shp) + 
+  tm_polygons(fill = "#ccebc5", lwd = 0) + 
+  tm_shape(period_diff_anom_points) + 
+  tm_dots(fill = "endcen_avg_annual_days_above_temp_thresh", size = 0.4, 
+          fill.scale = tm_scale_intervals(values = "YlOrRd", breaks = all_temp_breaks$brks)) +
+  tm_layout(bg.color = "#a6cee3") +
+  tm_title(
+    "Endcen avg annual days above temp thresh",
+    position = tm_pos_out("center", "top"))
+
+#shows diff story than diff map -- in midcen, more days below thresh in norcal. in endcen, much more days everywhere. but relatively the increase is more in socal.
+#pH - historic
+tm_shape(CA_shp) + 
+  tm_polygons(fill = "#ccebc5", lwd = 0) + 
+  tm_shape(period_diff_anom_points) + 
+  tm_dots(fill = "historic_avg_annual_days_below_pH_thresh", size = 0.4, 
+          fill.scale = tm_scale_intervals(values = "YlOrRd", breaks = all_pH_breaks$brks)) +
+  tm_layout(bg.color = "#a6cee3") +
+  tm_title(
+    "Historic avg annual days below pH thresh",
+    position = tm_pos_out("center", "top"))
+#pH - midcen
+tm_shape(CA_shp) + 
+  tm_polygons(fill = "#ccebc5", lwd = 0) + 
+  tm_shape(period_diff_anom_points) + 
+  tm_dots(fill = "midcen_avg_annual_days_below_pH_thresh", size = 0.4, 
+          fill.scale = tm_scale_intervals(values = "YlOrRd", breaks = all_pH_breaks$brks)) +
+  tm_layout(bg.color = "#a6cee3") +
+  tm_title(
+    "Midcen avg annual days below pH thresh",
+    position = tm_pos_out("center", "top"))
+#pH - endcen
+tm_shape(CA_shp) + 
+  tm_polygons(fill = "#ccebc5", lwd = 0) + 
+  tm_shape(period_diff_anom_points) + 
+  tm_dots(fill = "endcen_avg_annual_days_below_pH_thresh", size = 0.4, 
+          fill.scale = tm_scale_intervals(values = "YlOrRd", breaks = all_pH_breaks$brks)) +
+  tm_layout(bg.color = "#a6cee3") +
+  tm_title(
+    "Endcen avg annual days below pH thresh",
+    position = tm_pos_out("center", "top"))
+
+#same story as diff maps
+#DO - historic
+tm_shape(CA_shp) + 
+  tm_polygons(fill = "#ccebc5", lwd = 0) + 
+  tm_shape(period_diff_anom_points) + 
+  tm_dots(fill = "historic_avg_annual_days_below_DO_thresh", size = 0.4, 
+          fill.scale = tm_scale_intervals(values = "YlOrRd", breaks = all_DO_breaks$brks)) +
+  tm_layout(bg.color = "#a6cee3") +
+  tm_title(
+    "Historic avg annual days below DO thresh",
+    position = tm_pos_out("center", "top"))
+#DO - midcen
+tm_shape(CA_shp) + 
+  tm_polygons(fill = "#ccebc5", lwd = 0) + 
+  tm_shape(period_diff_anom_points) + 
+  tm_dots(fill = "midcen_avg_annual_days_below_DO_thresh", size = 0.4, 
+          fill.scale = tm_scale_intervals(values = "YlOrRd", breaks = all_DO_breaks$brks)) +
+  tm_layout(bg.color = "#a6cee3") +
+  tm_title(
+    "Midcen avg annual days below DO thresh",
+    position = tm_pos_out("center", "top"))
+#DO - endcen
+tm_shape(CA_shp) + 
+  tm_polygons(fill = "#ccebc5", lwd = 0) + 
+  tm_shape(period_diff_anom_points) + 
+  tm_dots(fill = "endcen_avg_annual_days_below_DO_thresh", size = 0.4, 
+          fill.scale = tm_scale_intervals(values = "YlOrRd", breaks = all_DO_breaks$brks)) +
+  tm_layout(bg.color = "#a6cee3") +
+  tm_title(
+    "Endcen avg annual days below DO thresh",
+    position = tm_pos_out("center", "top"))
+```

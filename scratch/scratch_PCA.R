@@ -362,10 +362,8 @@ pca_all$x[, 1:n_comp] <- scaled_data %*% varimax_res$loadings
 # Keep first 3 PCs
 scores <- as.data.frame(pca_all$x[,1:3])
 
-#deciding how many clusters to use
+#deciding how many clusters to use (not too sure about this)
 fviz_nbclust(scores[,1:3], FUNcluster=kmeans, k.max = 8) 
-fviz_nbclust(historic_results, FUNcluster=kmeans, method="gap_stat", k.max = 8) 
-
 
 # Add metadata back
 scores$MPA <- sum$NAME
@@ -373,12 +371,9 @@ scores$MPA_num <- sum$OBJECTID
 scores$region <- sum$region
 scores$period <- sum$period
 
-
 #cluster: first set seed and run k means
 set.seed(123)
-
 km <- kmeans(scores[,1:2], centers = 4, nstart = 50)
-
 scores$cluster <- factor(km$cluster)
 
 cluster_table <- scores %>%
@@ -391,8 +386,6 @@ cluster_table <- scores %>%
 cluster_table$n_changes <-
   (cluster_table$historic != cluster_table$midcen) +
   (cluster_table$midcen != cluster_table$endcen)
-
-cluster_table
 
 #visualizing summary for cluster changes
 general_cluster_table_summary <- cluster_table %>%
@@ -470,20 +463,7 @@ ft_mpa_cluster_table <- flextable(mpa_cluster_table_summary) %>%
 
 ft_mpa_cluster_table
 
-
-
-
-
-with(filter(scores, period == "historic"),
-     table(region, cluster))
-
-with(filter(scores, period == "midcen"),
-     table(region, cluster))
-
-with(filter(scores, period == "endcen"),
-     table(region, cluster))
-
-
+#ARI someway to show if things are similar or different?
 scores %>%
   group_by(period) %>%
   summarise(
@@ -491,23 +471,19 @@ scores %>%
   )
 
 
-
 #plotting
-
 hulls <- scores %>%
   group_by(cluster) %>%
   slice(chull(PC1, PC2))
 
-#can remove if segment thing works
+scores$period <- factor(scores$period, 
+                        levels = c("historic","midcen","endcen"))
+
+#adding this to draw lines for only mpas that changed clusters
 changed_mpas <- cluster_table %>%
   filter(n_changes > 0) %>%
   pull(MPA_num)
 
-scores$period <- factor(scores$period, 
-                        levels = c("historic","midcen","endcen"))
-
-#delete if other thing works
-#adding this to draw lines for only mpas that changed clusters
 scores_segments <- scores %>%
   filter(MPA_num %in% changed_mpas) %>%
   select(MPA_num, region, period, PC1, PC2) %>%
@@ -555,10 +531,6 @@ p <- fviz_pca_biplot(
   invisible = "quali"
 ) 
 p
-
-
-
-
 
 #labeling cluster colors
 cluster_cols <- c(
