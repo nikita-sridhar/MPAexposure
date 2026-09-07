@@ -320,17 +320,21 @@ scores$MPA_num <- sum$OBJECTID
 scores$region <- sum$region
 scores$period <- sum$period
 
+
 ```
 
 Cluster analysis
 
 ```{r}
 #deciding how many clusters to use (not too sure about this)
-fviz_nbclust(scores[,1:3], FUNcluster=kmeans, k.max = 8) 
+fviz_nbclust(scores[,1:2], FUNcluster = kmeans, method = "wss", k.max = 8) 
+fviz_nbclust(scores[,1:2], FUNcluster = kmeans, method = "silhouette", k.max = 8) 
+fviz_nbclust(scores[,1:2], FUNcluster = kmeans, method = "gap_stat", k.max = 8) 
+#both gap_stat and sillhouette say 2 clusters
 
 #cluster: first set seed and run k means
 set.seed(123)
-km <- kmeans(scores[,1:2], centers = 4, nstart = 50)
+km <- kmeans(scores[,1:2], centers = 2, nstart = 50)
 scores$cluster <- factor(km$cluster)
 
 cluster_table <- scores %>%
@@ -409,8 +413,6 @@ ft_mpa_cluster_table <- flextable(mpa_cluster_table_summary) %>%
     align = "left",
     part = "all"
   ) %>%
-  merge_v(j = "region") %>%
-  valign(j = "region", valign = "top") %>%
   bold(part = "header") %>%
   fontsize(size = 10, part = "all") %>%
   width(j = "region", width = 1.2) %>%
@@ -436,6 +438,7 @@ hulls <- scores %>%
   group_by(cluster) %>%
   slice(chull(PC1, PC2))
 
+#still need this even if no cluster (for lines across mpa)
 scores$period <- factor(scores$period, 
                         levels = c("historic","midcen","endcen"))
 
@@ -499,6 +502,11 @@ cluster_cols <- c(
   "3" = "#fc8d62",
   "4" = "#e78ac3"
 )
+cluster_cols2 <- c(
+  "2" = "#8da0cb",
+  "1" = "#66c2a5"
+)
+
 region_cols <- c(
   "centralca" = "#fc8d62",
   "channel" = "#66c2a5",
@@ -550,55 +558,241 @@ p +
     inherit.aes = FALSE
   ) + 
 
-  scale_fill_manual(values = cluster_cols) +
+  scale_fill_manual(values = cluster_cols2) +
   scale_color_manual(values = region_cols) +
     
   
   labs(title = "All Period MPAs")
 ```
 
-## NMDS Plots
+```{r}
+#PCA without clusters (test)
+p +
+  
+  geom_point(
+    data = scores, 
+    aes(PC1, PC2,
+        color = region,
+        shape = period),
+    size = 2,
+    inherit.aes = FALSE
+  ) + 
+  
+  scale_color_manual(values = region_cols) +
+    
+  
+  labs(title = "All Period MPAs")
+```
+
+Change over PCs
 
 ```{r}
 #saving factor scores from pca of whole dataset (above chunk) and only select PC1 (most explanatory)
+#i think this si same as scores but doube check
 factors <- as.data.frame(pca_all$x) %>%
-  select("PC1") %>%
+  select("PC1","PC2") %>%
 #I think the rows correspond to each individual mpa for a certain time period, corresponds to sum, need to merge this and only select pc1 since its most explanatory (but need to confirm this)
   cbind(sum) %>%
 #convert from long to wide (for period) 
   pivot_wider(id_cols = c("File","region","SHORTNAME"),
               names_from = "period",
-              values_from = "PC1",
-              names_prefix = "PC1_") %>%
-  select(File, region, SHORTNAME, PC1_historic, PC1_midcen, PC1_endcen)
+              values_from = c("PC1","PC2")) %>%
+  
+  #for ordering x axis of graphs
+  mutate(region = factor(region, levels = c("norca", "centralca", "channel", "socal")))
+
+
+#mpa PC changes:
+mpa_change <- factors %>%
+  
+  mutate("PC1_Historic_Mid-cen_change" = PC1_midcen - PC1_historic,
+         "PC1_Mid-cen_End-cen_change" = PC1_endcen - PC1_midcen,
+         "PC2_Historic_Mid-cen_change" = PC2_midcen - PC2_historic,
+         "PC2_Mid-cen_End-cen_change" = PC2_endcen - PC2_midcen) %>%
+  
+  pivot_longer(cols = 10:13, 
+               names_to = "Trajectory", 
+               values_to = "PC_diff") %>%
+  
+  select(-PC1_endcen,-PC1_historic,-PC1_midcen,-PC2_endcen,-PC2_historic,-PC2_midcen) %>%
+  
+  mutate(PC = substr(Trajectory,1,3), .after = Trajectory,
+         Period = str_match(Trajectory, "^[^_]*_(.*)_[^_]*$")[, 2],
+         Period = sub("_", " \u2192 ",Period)) 
+
+#averaged over all MPAs---------------
+mpa_change_summary <- mpa_change  %>%
+  group_by(Period, PC) %>%
+  summarise("Mean change in PC value" = mean(PC_diff)) %>%
+
+arrange(PC)
+
+#table
+flextable(mpa_change_summary) %>% 
+  autofit()
+
+
+
+#averaged across regions: -------------------------
+region_mpa_change_summary <- mpa_change %>%
+  group_by(Period, PC, region) %>%
+  summarise(mean_pc_change = mean(PC_diff),
+            sd_pc_change = sd(PC_diff)) %>%
+
+arrange(PC, region) %>%
+  
+  #opacity for graph
+  mutate(opacity = ifelse(Period == "Historic → Mid-cen", 0.4, 1),
+         region = factor(region, levels = c("norca", "centralca", "channel", "socal")))
+
+
+#graph of mean change in pc per region
+ggplot(region_mpa_change_summary, aes(x = region, y = mean_pc_change, 
+                                      fill = region, alpha = opacity, group = interaction(region, Period))) +
+  geom_col(position = position_dodge(width = 0.9)) +
+  geom_errorbar(aes(ymin = mean_pc_change - sd_pc_change,
+                    ymax = mean_pc_change + sd_pc_change),
+                position = position_dodge(width = 0.9),
+                width = 0.2,
+                color = "#708090") +
+  scale_fill_manual(values = region_cols) +
+  scale_alpha_identity(name = "Period",
+                       labels = c("Historic → Mid-cen","Mid-cen → End-cen"),
+                       breaks = c(0.4,1),
+                       guide = "legend") +
+  facet_wrap(~PC, scales = "free")+
+  theme_bw() 
+
+  
+```
+
+## NMDS Plots
+
+Residual analysis:
+
+```{r}
+#running lm model of historic vs. midcen and historic vs. endcen
+pc1_hist_midcen_mod <- lm(PC1_midcen ~ PC1_historic, data = factors)
+pc1_hist_endcen_mod <- lm(PC1_endcen ~ PC1_historic, data = factors)
+
+pc2_hist_midcen_mod <- lm(PC2_midcen ~ PC2_historic, data = factors)
+pc2_hist_endcen_mod <- lm(PC2_endcen ~ PC2_historic, data = factors)
+
+#saving residuals
+pc_residuals <- factors %>% 
+  
+  mutate(pc1_hist_midcen = residuals(pc1_hist_midcen_mod),
+         pc1_hist_endcen = residuals(pc1_hist_endcen_mod),
+         pc2_hist_midcen = residuals(pc2_hist_midcen_mod),
+         pc2_hist_endcen = residuals(pc2_hist_endcen_mod)) %>%
+ 
+  select(-c(4:9)) %>%
+  
+  #for plotting both periods on same graph
+  pivot_longer(cols = c(-File,-region,-SHORTNAME),
+               names_to = "descriptor",
+               values_to = "residual") %>%
+  
+  #adding id columns
+  mutate(PC = substr(descriptor,1,3), .after = descriptor,
+         Period = sub("^[^_]*_", "", descriptor),
+         Period = sub("_", " \u2192 ", Period)) %>%
+  
+  select(-descriptor) %>%
+
+  #finding regional means and sd
+  group_by(region, PC, Period) %>%
+  
+  mutate(region_mean = mean(residual, na.rm = TRUE),
+         region_sd = sd(residual, na.rm = TRUE),
+         dist_from_mean = abs(residual - region_mean),
+         label = ifelse(dist_from_mean >= quantile(dist_from_mean, 0.95, na.rm = TRUE),
+                                                   SHORTNAME, NA)) %>%
+
+  #opacity for graph
+  mutate(opacity = ifelse(Period == "hist → midcen", 0.4, 1),
+         region = factor(region, levels = c("norca", "centralca", "channel", "socal")),
+         Period = factor(Period, levels = c("hist → midcen", "hist → endcen")))
+
+#summary for bar chart
+region_pc_residuals <- pc_residuals %>%
+  distinct(region, PC, Period, region_mean, region_sd, opacity)  %>%
+  arrange(PC, region) 
+
+
+#plot residuals and mean region residual for pc1 and pc2
+ggplot(pc_residuals, aes(x = region, y = region_mean, 
+                         fill = region, alpha = opacity,  
+                         group = interaction(region, Period))) +
+  #regional pc residual mean 
+  geom_col(stat = "mean", position = position_dodge(width = 0.9)) +
+  #actual residual per mpa
+  geom_point(aes(y = residual, color = region, group = Period), 
+             position = position_jitterdodge(dodge.width = 0.9)) +
+  #label mpa top .95 percentile residual
+  geom_text_repel(aes(y = residual, color = region, group = Period, 
+                      label = label), size = 3) +
+  #error bar sd
+  geom_errorbar(aes(ymin = region_mean - region_sd,
+                    ymax = region_mean + region_sd),
+                position = position_dodge(width = 0.9),
+                width = 0.2,
+                color = "#8B9397",
+                alpha = 0.5) +
+  
+  scale_fill_manual(values = region_cols) +
+  scale_color_manual(values = region_cols) +
+  
+  scale_alpha_identity(name = "Period",
+                       labels = c("hist → midcen" ,"hist → endcen"),
+                       breaks = c(0.4,1),
+                       guide = "legend") +
+  facet_wrap(~PC, scales = "free")+
+  theme_bw()
+
+```
+
+For PC2
+
+```{r}
+factors_pc2 <- as.data.frame(pca_all$x) %>%
+  select("PC2") %>%
+  cbind(sum) %>%
+  pivot_wider(id_cols = c("File","region","SHORTNAME"),
+              names_from = "period",
+              values_from = "PC2",
+              names_prefix = "PC2_") %>%
+  select(File, region, SHORTNAME, PC2_historic, PC2_midcen, PC2_endcen)
 
 #running lm model of historic vs. midcen and historic vs. endcen
-hist_midcen_mod <- lm(PC1_midcen ~ PC1_historic, data = factors)
-hist_endcen_mod <- lm(PC1_endcen ~ PC1_historic, data = factors)
-midcen_endcen_mod <- lm( PC1_endcen ~ PC1_midcen, data = factors)
+hist_midcen_mod_pc2 <- lm(PC2_midcen ~ PC2_historic, data = factors_pc2)
+hist_endcen_mod_pc2 <- lm(PC2_endcen ~ PC2_historic, data = factors_pc2)
+midcen_endcen_mod_pc2 <- lm( PC2_endcen ~ PC2_midcen, data = factors_pc2)
 
-summary(hist_midcen_mod)
-summary(hist_endcen_mod)
+summary(hist_midcen_mod_pc2)
+summary(hist_endcen_mod_pc2)
 
 #saving residuals and fitted values. - scaled so wrt 0 (not sure if need to scale or not)
-factors2 <- factors %>% 
-  mutate(residual_hist_midcen = residuals(hist_midcen_mod),
-         residual_hist_endcen = residuals(hist_endcen_mod),
-         residual_midcen_endcen = residuals(midcen_endcen_mod),
-         scaled_residual_hist_midcen = as.numeric(scale(residuals(hist_midcen_mod))),
-         scaled_residual_hist_endcen =  as.numeric(scale(residuals(hist_endcen_mod))),
-         scaled_residual_midcen_endcen =  as.numeric(scale(residuals(midcen_endcen_mod))),
-         scaled_PC1_historic = scale(factors$PC1_historic)) 
+factors2_pc2 <- factors_pc2 %>% 
+  mutate(residual_hist_midcen = residuals(hist_midcen_mod_pc2),
+         residual_hist_endcen = residuals(hist_endcen_mod_pc2),
+         residual_midcen_endcen = residuals(midcen_endcen_mod_pc2),
+         scaled_residual_hist_midcen = as.numeric(scale(residuals(hist_midcen_mod_pc2))),
+         scaled_residual_hist_endcen =  as.numeric(scale(residuals(hist_endcen_mod_pc2))),
+         scaled_residual_midcen_endcen =  as.numeric(scale(residuals(midcen_endcen_mod_pc2))),
+         scaled_PC2_historic = scale(factors$PC2_historic)) 
   
 
 
 #running an lm between scaled_predicted_hist_midcen and scaled_predicted_hist_endcen bc this is the line in p1, and want slope to extend the line
-bestfit <-lm(factors2$scaled_residual_hist_endcen ~ factors2$scaled_residual_hist_midcen)
+bestfit <-lm(factors2_pc2$scaled_residual_hist_endcen ~ factors2_pc2$scaled_residual_hist_midcen)
+
+summary(bestfit)
 
 intercept <- as.numeric(coef(bestfit)[1])
 slope <- as.numeric(coef(bestfit)[2])
 
-factors3 <- factors2 %>%
+factors3_pc2 <- factors2_pc2 %>%
   mutate(dist_to_line = abs(slope * scaled_residual_hist_midcen - 
                               scaled_residual_hist_endcen + intercept)
                         / sqrt(slope^2 + (-1)^2)) %>%
@@ -609,20 +803,16 @@ factors3 <- factors2 %>%
 
 
 #historic vs midcen residual plot - added scaled predicted to scaled residual
-ggplot(factors3, aes(x = scaled_residual_hist_midcen, y = scaled_residual_hist_endcen)) +
+pc2 <- ggplot(factors3, aes(x = scaled_residual_hist_midcen, y = scaled_residual_hist_endcen)) +
   geom_point(aes(color = region)) +  
   geom_abline(slope = slope, intercept = intercept, linewidth = 1) +
   geom_hline(yintercept = 0, color = "gray") +
   geom_vline(xintercept = 0, color = "gray")  +
-  ggtitle("Mid century and End century PC1 residuals with fitted model line") +
+  ggtitle("Mid century and End century PC2 residuals with fitted model line") +
   geom_text_repel(aes(label = label, color = region), size = 2.5) +
   theme_bw()
 
-
-
-
-
-
+pc2
 
 ```
 
@@ -745,11 +935,6 @@ Setting scale and legend breaks
 
 ```{r}
 CA_shp <- st_read(here("./data/rawdata/shp/CA_Counties/CA_Counties_TIGER2016.shp"))
-
-make_anom_map(annual_events, "avg_annual_days_above_temp_thresh", "historic", diff = TRUE)
-
-make_anom_map <- function(mpa_summary_df, sumstat, periodt, 
-                          palette = "YlOrRd", diff = FALSE)
   
  
 #converting df to spatial data format
