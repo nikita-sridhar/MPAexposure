@@ -57,14 +57,14 @@ library(flextable)
 #| label: load_data
 #| message: false
 
-#Read mpa data, convert DO units, add a column for time period, and one for difference between mid/end cen and historic.
+#Read mpa data, convert DO units, add a column for time period, and one for difference between mid/end cen and presentday.
 mpa <- read_csv(here("data/processeddata/model/IPSLmpa.csv")) %>% 
   mutate(DO_mmolL = DO_surf/1000,
          DO_mgL = convert_DO(DO_mmolL, from = "mmol/L", to = "mg/L")) %>% 
   filter(Year <= 2020|
          Year >= 2040 & Year <= 2060|
          Year >= 2080 & Year <= 2100) %>%
-  mutate(period = case_when((Year <= 2020) ~ "historic", 
+  mutate(period = case_when((Year <= 2020) ~ "presentday", 
                            (Year %in% c(2040:2060)) ~ "midcen",
                            (Year %in% c(2080:2100)) ~ "endcen")) %>%
   select(-T_bot, -DO_bot, -pH_bot,-DO_surf,-DO_mmolL) %>%
@@ -102,6 +102,68 @@ channel <- c("Anacapa Island FMCA", "Anacapa Island FMR", "Anacapa Island SMCA",
 mpa_centroids$region[mpa_centroids$NAME %in% channel]  <- "channel" 
 mpa <- merge(mpa, mpa_centroids,  by = "File")
 
+```
+
+#### Map showing regions:
+
+```{r}
+
+CA_shp <- st_read(here("./data/rawdata/shp/CA/cb_2025_06_cousub_500k/cb_2025_06_cousub_500k.shp")) %>%
+  st_transform(crs = 4326) %>% #setting to wgs84 
+  mutate(
+    degx = st_coordinates(st_centroid(geometry))[, 1],
+    degy = st_coordinates(st_centroid(geometry))[, 2],
+    region = case_when(degy >= 37.29 ~ "norca",
+                       degy < 37.29 & degy >= 34.8 ~ "centralca",
+                       degy < 34.8 ~ "socal",
+                       degy <= 34.14096 & degy >= 33.84145 & 
+                         degx >= -120.54587 & degx <= -119.32878 ~ "channel"),
+    region = factor(region, levels = c("norca","centralca","channel","socal"))
+  )
+
+
+#data from here: https://data.ca.gov/dataset/california-marine-protected-areas-ds582
+mpa_shp <- st_read(here("./data/rawdata/shp/mpa/California_Marine_Protected_Areas_[ds582]/California_Marine_Protected_Areas_[ds582].shp")) %>%
+  st_transform(crs = 4326) #setting to wgs84
+  
+mpa_shp_filtered <- mpa_shp %>% 
+  filter(NAME %in% mpa_centroids$NAME) %>% #filter for chosen MPAs
+  left_join(mpa_centroids %>% select("NAME","region"),
+            by = "NAME")
+
+
+region_cols <- c(
+  "norca" = "#8da0cb",
+  "centralca" = "#fc8d62",
+  "channel" = "#66c2a5",
+  "socal" = "#e78ac3"
+)
+
+
+make_map <- function(bbox, title) {
+  tm_shape(CA_shp, bbox = bbox) +
+    tm_polygons(fill = "region",
+                fill.scale = tm_scale_categorical(values = region_cols),
+                fill_alpha = 0.5,
+              lwd = 0) +
+    tm_shape(mpa_shp_filtered) +
+    tm_polygons(fill = "region",
+                fill.scale = tm_scale_categorical(values = region_cols),
+                lwd = 0,
+                fill.legend = tm_legend(show = FALSE)) +
+    tm_graticules(alpha = 0.1) +
+    tm_layout(bg.color = "#c6dfea",
+              frame = FALSE,
+              inner.margins = c(0.03, 0.03, 0.03, 0.03)) +
+    tm_title(title)
+}
+
+norcal <- make_map(c(-125, 37, -122, 42), "Northern California")
+centralca <- make_map(c(-123, 34.5, -120, 37.5), "Central California")
+channel <- make_map(c(-120.7, 33.3, -118.8, 34.25), "Channel Islands")
+socal <- make_map(c(-121, 31, -115, 35), "Southern California")
+
+tmap_arrange(norcal, centralca, channel, socal, nrow = 1)
 ```
 
 ## Calculate climatology
@@ -200,15 +262,15 @@ interpolate <- function(periodt, variable){
 #| label: interpolation_function_call
 
 
-interpolate("historic", "T_clim")
+interpolate("presentday", "T_clim")
 interpolate("midcen", "T_clim")
 interpolate("endcen", "T_clim")
 
-interpolate("historic", "pH_clim")
+interpolate("presentday", "pH_clim")
 interpolate("midcen", "pH_clim")
 interpolate("endcen", "pH_clim")
 
-interpolate("historic", "DO_clim")
+interpolate("presentday", "DO_clim")
 interpolate("midcen", "DO_clim")
 interpolate("endcen", "DO_clim")
 ```
@@ -216,15 +278,15 @@ interpolate("endcen", "DO_clim")
 ```{r}
 #| label: combine_interp_dataframes
 
-interpolated_temp <- rbind(interp_T_clim_historic,
+interpolated_temp <- rbind(interp_T_clim_presentday,
                            interp_T_clim_midcen,
                            interp_T_clim_endcen)
 
-interpolated_pH <- rbind(interp_pH_clim_historic,
+interpolated_pH <- rbind(interp_pH_clim_presentday,
                            interp_pH_clim_midcen,
                            interp_pH_clim_endcen)
 
-interpolated_DO <- rbind(interp_DO_clim_historic,
+interpolated_DO <- rbind(interp_DO_clim_presentday,
                            interp_DO_clim_midcen,
                            interp_DO_clim_endcen)
 ```
@@ -323,162 +385,9 @@ scores$period <- sum$period
 
 ```
 
-Cluster analysis
-
-```{r}
-#deciding how many clusters to use (not too sure about this)
-fviz_nbclust(scores[,1:2], FUNcluster = kmeans, method = "wss", k.max = 8) 
-fviz_nbclust(scores[,1:2], FUNcluster = kmeans, method = "silhouette", k.max = 8) 
-fviz_nbclust(scores[,1:2], FUNcluster = kmeans, method = "gap_stat", k.max = 8) 
-#both gap_stat and sillhouette say 2 clusters
-
-#cluster: first set seed and run k means
-set.seed(123)
-km <- kmeans(scores[,1:2], centers = 2, nstart = 50)
-scores$cluster <- factor(km$cluster)
-
-cluster_table <- scores %>%
-  select(MPA, MPA_num, region, period, cluster) %>%
-  pivot_wider(names_from = period, values_from = cluster) %>%
-  mutate(region = recode(region, "channel" = "Channel Islands","norca" = "Northern CA",
-                         "socal" = "Southern CA", "centralca" = "Central CA"))
-
-#count cluster changes
-cluster_table$n_changes <-
-  (cluster_table$historic != cluster_table$midcen) +
-  (cluster_table$midcen != cluster_table$endcen)
-
-#visualizing summary for cluster changes
-general_cluster_table_summary <- cluster_table %>%
-  group_by(region) %>%
-  summarise(
-    total_MPAs = n(),
-    num_MPAs_changed = sum(n_changes > 0),
-    mean_changes = mean(n_changes),
-    .groups = "drop")
-
-#making pretty table
-ft_general_cluster_table <- flextable(general_cluster_table_summary) %>%
-  set_header_labels(
-    region = "Region", total_MPAs = "Total\nMPAs", num_MPAs_changed = "MPAs\nChanged",mean_changes = "Mean Cluster\nChanges") %>%
-  colformat_double(j = "mean_changes", digits = 2) %>%
-  theme_booktabs() %>%
-  bold(part = "header") %>%
-  align(align = "center", j = c("total_MPAs", "num_MPAs_changed", "mean_changes"),
-        part = "all") %>%
-  align(align = "left",j = "region",
-        part = "all") %>%
-  autofit() %>%
-  fontsize(size = 10, part = "all")
-ft_general_cluster_table
-
-
-mpa_cluster_table_summary <- scores %>%
-  select(MPA, MPA_num, region, period, cluster) %>%
-  pivot_wider(
-    names_from = period,
-    values_from = cluster,
-    names_glue = "{period}_cluster"
-  ) %>%
-  # Reorder columns
-  select(region, historic_cluster, midcen_cluster, endcen_cluster, MPA, MPA_num) %>%
-  # Keep only MPAs that changed cluster
-  filter(historic_cluster != midcen_cluster | historic_cluster != endcen_cluster 
-         |midcen_cluster != endcen_cluster) %>%
-  # Collapse MPAs with identical trajectories
-  group_by(region,historic_cluster,midcen_cluster,endcen_cluster) %>%
-  summarise(MPAs = paste(MPA, collapse = ", "),MPA_nums = paste(MPA_num, collapse = ", "),
-    .groups = "drop")  %>%
-  arrange(region,historic_cluster,midcen_cluster,endcen_cluster)
-
-#making a pretty table
-ft_mpa_cluster_table <- flextable(mpa_cluster_table_summary) %>%
-  set_header_labels(
-    region = "Region",
-    historic_cluster = "Historic\nCluster",
-    midcen_cluster = "Mid-century\nCluster",
-    endcen_cluster = "End-century\nCluster",
-    MPAs = "MPAs",
-    MPA_nums = "MPA IDs"
-  ) %>%
-  theme_booktabs() %>%
-  autofit() %>%
-  align(
-    j = c("historic_cluster", "midcen_cluster", "endcen_cluster"),
-    align = "center",
-    part = "all"
-  ) %>%
-  align(
-    j = c("region", "MPAs", "MPA_nums"),
-    align = "left",
-    part = "all"
-  ) %>%
-  bold(part = "header") %>%
-  fontsize(size = 10, part = "all") %>%
-  width(j = "region", width = 1.2) %>%
-  width(j = c("historic_cluster", "midcen_cluster", "endcen_cluster"), width = 0.8) %>%
-  width(j = "MPAs", width = 3.8) %>%
-  width(j = "MPA_nums", width = 1.5)
-
-ft_mpa_cluster_table
-
-#ARI someway to show if clusters are similar or different?
-scores %>%
-  group_by(period) %>%
-  summarise(
-    ARI = adjustedRandIndex(region, cluster)
-  )
-```
-
 Plotting results
 
 ```{r}
-#plotting
-hulls <- scores %>%
-  group_by(cluster) %>%
-  slice(chull(PC1, PC2))
-
-#still need this even if no cluster (for lines across mpa)
-scores$period <- factor(scores$period, 
-                        levels = c("historic","midcen","endcen"))
-
-#adding this to draw lines for only mpas that changed clusters
-changed_mpas <- cluster_table %>%
-  filter(n_changes > 0) %>%
-  pull(MPA_num)
-
-scores_segments <- scores %>%
-  filter(MPA_num %in% changed_mpas) %>%
-  select(MPA_num, region, period, PC1, PC2) %>%
-  pivot_wider(
-    names_from = period,
-    values_from = c(PC1,PC2)
-  )
-
-#segments for plot
-seg_hist_mid <- cluster_table %>%
-  filter(historic != midcen) %>%
-  select(MPA_num) %>%
-  left_join(scores %>%
-      select(MPA_num, period, PC1, PC2, region) %>%
-      tidyr::pivot_wider(
-        names_from = period,
-        values_from = c(PC1, PC2)
-      ),
-    by = "MPA_num"
-  )
-
-seg_mid_end <- cluster_table %>%
-  filter(midcen != endcen) %>%
-  select(MPA_num) %>%
-  left_join(scores %>%
-              select(MPA_num, period, PC1, PC2, region) %>%
-              tidyr::pivot_wider(
-                names_from = period,
-                values_from = c(PC1, PC2)
-              ),
-            by = "MPA_num"
-  )
 
 #pca biplot
 p <- fviz_pca_biplot(
@@ -493,80 +402,8 @@ p <- fviz_pca_biplot(
   addEllipses = FALSE,
   invisible = "quali"
 ) 
-p
 
-#labeling cluster colors
-cluster_cols <- c(
-  "1" = "#8da0cb",
-  "2" = "#66c2a5",
-  "3" = "#fc8d62",
-  "4" = "#e78ac3"
-)
-cluster_cols2 <- c(
-  "2" = "#8da0cb",
-  "1" = "#66c2a5"
-)
 
-region_cols <- c(
-  "centralca" = "#fc8d62",
-  "channel" = "#66c2a5",
-  "norca" = "#8da0cb",
-  "socal" = "#e78ac3"
-)
-
-#overlaying pca biplot with the hulls from clusters
-p +
-  geom_polygon(
-    data = hulls,
-    aes(x = PC1, y = PC2, 
-        group = cluster, fill = cluster),
-    alpha = 0.3,
-    color = NA,
-    inherit.aes = FALSE
-  ) +
-  
-  geom_segment(
-    data = seg_hist_mid,
-    aes(x = PC1_historic,
-        y = PC2_historic,
-        xend = PC1_midcen,
-        yend = PC2_midcen,
-        color = region),
-    linewidth = 0.4,
-    alpha = 0.2,
-    inherit.aes = FALSE
-  ) +
-  
-  geom_segment(
-    data = seg_mid_end,
-    aes(x = PC1_midcen,
-        y = PC2_midcen,
-        xend = PC1_endcen,
-        yend = PC2_endcen,
-        color = region),
-    linewidth = 0.4,
-    alpha = 0.2,
-    inherit.aes = FALSE
-  ) +
-  
-  geom_point(
-    data = scores, 
-    aes(PC1, PC2,
-        color = region,
-        shape = period),
-    size = 2,
-    inherit.aes = FALSE
-  ) + 
-
-  scale_fill_manual(values = cluster_cols2) +
-  scale_color_manual(values = region_cols) +
-    
-  
-  labs(title = "All Period MPAs")
-```
-
-```{r}
-#PCA without clusters (test)
 p +
   
   geom_point(
@@ -605,16 +442,16 @@ factors <- as.data.frame(pca_all$x) %>%
 #mpa PC changes:
 mpa_change <- factors %>%
   
-  mutate("PC1_Historic_Mid-cen_change" = PC1_midcen - PC1_historic,
+  mutate("PC1_presentday_Mid-cen_change" = PC1_midcen - PC1_presentday,
          "PC1_Mid-cen_End-cen_change" = PC1_endcen - PC1_midcen,
-         "PC2_Historic_Mid-cen_change" = PC2_midcen - PC2_historic,
+         "PC2_presentday_Mid-cen_change" = PC2_midcen - PC2_presentday,
          "PC2_Mid-cen_End-cen_change" = PC2_endcen - PC2_midcen) %>%
   
   pivot_longer(cols = 10:13, 
                names_to = "Trajectory", 
                values_to = "PC_diff") %>%
   
-  select(-PC1_endcen,-PC1_historic,-PC1_midcen,-PC2_endcen,-PC2_historic,-PC2_midcen) %>%
+  select(-PC1_endcen,-PC1_presentday,-PC1_midcen,-PC2_endcen,-PC2_presentday,-PC2_midcen) %>%
   
   mutate(PC = substr(Trajectory,1,3), .after = Trajectory,
          Period = str_match(Trajectory, "^[^_]*_(.*)_[^_]*$")[, 2],
@@ -623,7 +460,8 @@ mpa_change <- factors %>%
 #averaged over all MPAs---------------
 mpa_change_summary <- mpa_change  %>%
   group_by(Period, PC) %>%
-  summarise("Mean change in PC value" = mean(PC_diff)) %>%
+  summarise("Mean change in PC value" = mean(PC_diff),
+            "SD of change in PC value" = sd(PC_diff)) %>%
 
 arrange(PC)
 
@@ -642,7 +480,7 @@ region_mpa_change_summary <- mpa_change %>%
 arrange(PC, region) %>%
   
   #opacity for graph
-  mutate(opacity = ifelse(Period == "Historic → Mid-cen", 0.4, 1),
+  mutate(opacity = ifelse(Period == "presentday → Mid-cen", 0.4, 1),
          region = factor(region, levels = c("norca", "centralca", "channel", "socal")))
 
 
@@ -657,7 +495,7 @@ ggplot(region_mpa_change_summary, aes(x = region, y = mean_pc_change,
                 color = "#708090") +
   scale_fill_manual(values = region_cols) +
   scale_alpha_identity(name = "Period",
-                       labels = c("Historic → Mid-cen","Mid-cen → End-cen"),
+                       labels = c("presentday → Mid-cen","Mid-cen → End-cen"),
                        breaks = c(0.4,1),
                        guide = "legend") +
   facet_wrap(~PC, scales = "free")+
@@ -671,20 +509,20 @@ ggplot(region_mpa_change_summary, aes(x = region, y = mean_pc_change,
 Residual analysis:
 
 ```{r}
-#running lm model of historic vs. midcen and historic vs. endcen
-pc1_hist_midcen_mod <- lm(PC1_midcen ~ PC1_historic, data = factors)
-pc1_hist_endcen_mod <- lm(PC1_endcen ~ PC1_historic, data = factors)
+#running lm model of presentday vs. midcen and presentday vs. endcen
+pc1_presentday_midcen_mod <- lm(PC1_midcen ~ PC1_presentday, data = factors)
+pc1_presentday_endcen_mod <- lm(PC1_endcen ~ PC1_presentday, data = factors)
 
-pc2_hist_midcen_mod <- lm(PC2_midcen ~ PC2_historic, data = factors)
-pc2_hist_endcen_mod <- lm(PC2_endcen ~ PC2_historic, data = factors)
+pc2_presentday_midcen_mod <- lm(PC2_midcen ~ PC2_presentday, data = factors)
+pc2_presentday_endcen_mod <- lm(PC2_endcen ~ PC2_presentday, data = factors)
 
 #saving residuals
 pc_residuals <- factors %>% 
   
-  mutate(pc1_hist_midcen = residuals(pc1_hist_midcen_mod),
-         pc1_hist_endcen = residuals(pc1_hist_endcen_mod),
-         pc2_hist_midcen = residuals(pc2_hist_midcen_mod),
-         pc2_hist_endcen = residuals(pc2_hist_endcen_mod)) %>%
+  mutate(pc1_presentday_midcen = residuals(pc1_presentday_midcen_mod),
+         pc1_presentday_endcen = residuals(pc1_presentday_endcen_mod),
+         pc2_presentday_midcen = residuals(pc2_presentday_midcen_mod),
+         pc2_presentday_endcen = residuals(pc2_presentday_endcen_mod)) %>%
  
   select(-c(4:9)) %>%
   
@@ -710,9 +548,9 @@ pc_residuals <- factors %>%
                                                    SHORTNAME, NA)) %>%
 
   #opacity for graph
-  mutate(opacity = ifelse(Period == "hist → midcen", 0.4, 1),
+  mutate(opacity = ifelse(Period == "presentday → midcen", 0.4, 1),
          region = factor(region, levels = c("norca", "centralca", "channel", "socal")),
-         Period = factor(Period, levels = c("hist → midcen", "hist → endcen")))
+         Period = factor(Period, levels = c("presentday → midcen", "presentday → endcen")))
 
 #summary for bar chart
 region_pc_residuals <- pc_residuals %>%
@@ -744,10 +582,11 @@ ggplot(pc_residuals, aes(x = region, y = region_mean,
   scale_color_manual(values = region_cols) +
   
   scale_alpha_identity(name = "Period",
-                       labels = c("hist → midcen" ,"hist → endcen"),
+                       labels = c("presentday → midcen" ,"presentday → endcen"),
                        breaks = c(0.4,1),
                        guide = "legend") +
   facet_wrap(~PC, scales = "free")+
+  labs(y = "PC eigenvalue model residual") +
   theme_bw()
 
 ```
@@ -762,30 +601,30 @@ factors_pc2 <- as.data.frame(pca_all$x) %>%
               names_from = "period",
               values_from = "PC2",
               names_prefix = "PC2_") %>%
-  select(File, region, SHORTNAME, PC2_historic, PC2_midcen, PC2_endcen)
+  select(File, region, SHORTNAME, PC2_presentday, PC2_midcen, PC2_endcen)
 
-#running lm model of historic vs. midcen and historic vs. endcen
-hist_midcen_mod_pc2 <- lm(PC2_midcen ~ PC2_historic, data = factors_pc2)
-hist_endcen_mod_pc2 <- lm(PC2_endcen ~ PC2_historic, data = factors_pc2)
+#running lm model of presentday vs. midcen and presentday vs. endcen
+presentday_midcen_mod_pc2 <- lm(PC2_midcen ~ PC2_presentday, data = factors_pc2)
+presentday_endcen_mod_pc2 <- lm(PC2_endcen ~ PC2_presentday, data = factors_pc2)
 midcen_endcen_mod_pc2 <- lm( PC2_endcen ~ PC2_midcen, data = factors_pc2)
 
-summary(hist_midcen_mod_pc2)
-summary(hist_endcen_mod_pc2)
+summary(presentday_midcen_mod_pc2)
+summary(presentday_endcen_mod_pc2)
 
 #saving residuals and fitted values. - scaled so wrt 0 (not sure if need to scale or not)
 factors2_pc2 <- factors_pc2 %>% 
-  mutate(residual_hist_midcen = residuals(hist_midcen_mod_pc2),
-         residual_hist_endcen = residuals(hist_endcen_mod_pc2),
+  mutate(residual_presentday_midcen = residuals(presentday_midcen_mod_pc2),
+         residual_presentday_endcen = residuals(presentday_endcen_mod_pc2),
          residual_midcen_endcen = residuals(midcen_endcen_mod_pc2),
-         scaled_residual_hist_midcen = as.numeric(scale(residuals(hist_midcen_mod_pc2))),
-         scaled_residual_hist_endcen =  as.numeric(scale(residuals(hist_endcen_mod_pc2))),
+         scaled_residual_presentday_midcen = as.numeric(scale(residuals(presentday_midcen_mod_pc2))),
+         scaled_residual_presentday_endcen =  as.numeric(scale(residuals(presentday_endcen_mod_pc2))),
          scaled_residual_midcen_endcen =  as.numeric(scale(residuals(midcen_endcen_mod_pc2))),
-         scaled_PC2_historic = scale(factors$PC2_historic)) 
+         scaled_PC2_presentday = scale(factors$PC2_presentday)) 
   
 
 
-#running an lm between scaled_predicted_hist_midcen and scaled_predicted_hist_endcen bc this is the line in p1, and want slope to extend the line
-bestfit <-lm(factors2_pc2$scaled_residual_hist_endcen ~ factors2_pc2$scaled_residual_hist_midcen)
+#running an lm between scaled_predicted_presentday_midcen and scaled_predicted_presentday_endcen bc this is the line in p1, and want slope to extend the line
+bestfit <-lm(factors2_pc2$scaled_residual_presentday_endcen ~ factors2_pc2$scaled_residual_presentday_midcen)
 
 summary(bestfit)
 
@@ -793,17 +632,17 @@ intercept <- as.numeric(coef(bestfit)[1])
 slope <- as.numeric(coef(bestfit)[2])
 
 factors3_pc2 <- factors2_pc2 %>%
-  mutate(dist_to_line = abs(slope * scaled_residual_hist_midcen - 
-                              scaled_residual_hist_endcen + intercept)
+  mutate(dist_to_line = abs(slope * scaled_residual_presentday_midcen - 
+                              scaled_residual_presentday_endcen + intercept)
                         / sqrt(slope^2 + (-1)^2)) %>%
   mutate(label = case_when(dist_to_line > 1.3 ~ SHORTNAME, 
-                           abs(scaled_residual_hist_midcen) > 1.5 & 
-                           abs(scaled_residual_hist_endcen) > 1.5 ~ 
+                           abs(scaled_residual_presentday_midcen) > 1.5 & 
+                           abs(scaled_residual_presentday_endcen) > 1.5 ~ 
                           SHORTNAME, .default = NA))
 
 
-#historic vs midcen residual plot - added scaled predicted to scaled residual
-pc2 <- ggplot(factors3, aes(x = scaled_residual_hist_midcen, y = scaled_residual_hist_endcen)) +
+#presentday vs midcen residual plot - added scaled predicted to scaled residual
+pc2 <- ggplot(factors3, aes(x = scaled_residual_presentday_midcen, y = scaled_residual_presentday_endcen)) +
   geom_point(aes(color = region)) +  
   geom_abline(slope = slope, intercept = intercept, linewidth = 1) +
   geom_hline(yintercept = 0, color = "gray") +
@@ -818,7 +657,7 @@ pc2
 
 ## Anomalous pH/DO/temp Event Analysis
 
-Identify pH/DO/temp anomalous events. Events for pH are defined as 2+ days where pH \< 7.75, and events for DO are 2+ days where DO \< 4.6. Events for temp defined as 2+ days where daily temp exceeds historical climatology's temp for that month + 2\* historical climatology SD.
+Identify pH/DO/temp anomalous events. Events for pH are defined as 2+ days where pH \< 7.75, and events for DO are 2+ days where DO \< 4.6. Events for temp defined as 2+ days where daily temp exceeds presentdayal climatology's temp for that month + 2\* presentdayal climatology SD.
 
 Main summary statistic: difference in average number of days in a year an MPA experiences an event across time periods
 
@@ -886,21 +725,21 @@ Temperature events:
 ```{r}
 temp_events <- mpa %>%
   
-  #first calculating reference historic climatology
-  filter(period == "historic") %>%
+  #first calculating reference presentday climatology
+  filter(period == "presentday") %>%
   group_by(File, Month) %>%
-  summarise(histclim_Temp_mean = mean(Temp), 
-            histclim_Temp_sd = sd(Temp)) %>% #this sd is temp over all days in Jan - rather than average of each jan's SD - does it make a difference? 
+  summarise(presentdayclim_Temp_mean = mean(Temp), 
+            presentdayclim_Temp_sd = sd(Temp)) %>% #this sd is temp over all days in Jan - rather than average of each jan's SD - does it make a difference? 
  
    #bringing back to scale of julian days and all time periods
   merge(mpa, by = c("File", "Month")) %>%
-  select(File, Date, Year, NAME, Temp, period, degx, degy, julianday, histclim_Temp_mean, histclim_Temp_sd) %>%
+  select(File, Date, Year, NAME, Temp, period, degx, degy, julianday, presentdayclim_Temp_mean, presentdayclim_Temp_sd) %>%
   
   #labelling events
   group_by(period) %>%
-  mutate(is_temp_high = Temp > (histclim_Temp_mean + 2*histclim_Temp_sd),
+  mutate(is_temp_high = Temp > (presentdayclim_Temp_mean + 2*presentdayclim_Temp_sd),
          temp_event_id = ifelse(is_temp_high == "FALSE", NA, label_events(is_temp_high))) %>%
-  select(-histclim_Temp_mean, -histclim_Temp_sd) %>%
+  select(-presentdayclim_Temp_mean, -presentdayclim_Temp_sd) %>%
          
   #temp event summary 
   group_by(File, temp_event_id, period) %>% 
@@ -951,18 +790,18 @@ period_diff <- annual_events %>%
                               avg_annual_days_below_DO_thresh),
               names_glue = "{period}_{.value}") %>%
   
-  mutate(midhist_temp_days = midcen_avg_annual_days_above_temp_thresh -
-                             historic_avg_annual_days_above_temp_thresh,
+  mutate(midpresentday_temp_days = midcen_avg_annual_days_above_temp_thresh -
+                             presentday_avg_annual_days_above_temp_thresh,
          endmid_temp_days =  endcen_avg_annual_days_above_temp_thresh -
                              midcen_avg_annual_days_above_temp_thresh,
          
-         midhist_pH_days = midcen_avg_annual_days_below_pH_thresh -
-                           historic_avg_annual_days_below_pH_thresh,
+         midpresentday_pH_days = midcen_avg_annual_days_below_pH_thresh -
+                           presentday_avg_annual_days_below_pH_thresh,
          endmid_pH_days =  endcen_avg_annual_days_below_pH_thresh -
                            midcen_avg_annual_days_below_pH_thresh,
         
-         midhist_DO_days = midcen_avg_annual_days_below_DO_thresh -
-                           historic_avg_annual_days_below_DO_thresh,
+         midpresentday_DO_days = midcen_avg_annual_days_below_DO_thresh -
+                           presentday_avg_annual_days_below_DO_thresh,
          endmid_DO_days =  endcen_avg_annual_days_below_DO_thresh -
                            midcen_avg_annual_days_below_DO_thresh) %>%
   
@@ -975,28 +814,28 @@ period_diff_anom_points <- st_as_sf(period_diff, coords = c("degx","degy"), crs 
   
 #finding equal interval breaks
 #instead of all_diff_breaks
-temp_diffs <- c(period_diff$midhist_temp_days, period_diff$endmid_temp_days)
+temp_diffs <- c(period_diff$midpresentday_temp_days, period_diff$endmid_temp_days)
 temp_breaks <- classInt::classIntervals(temp_diffs, 10, "equal")
-pH_diffs <- c(period_diff$midhist_pH_days, period_diff$endmid_pH_days)
+pH_diffs <- c(period_diff$midpresentday_pH_days, period_diff$endmid_pH_days)
 pH_breaks <- classInt::classIntervals(pH_diffs, 10, "equal")
-DO_diffs <- c(period_diff$midhist_DO_days, period_diff$endmid_DO_days)
+DO_diffs <- c(period_diff$midpresentday_DO_days, period_diff$endmid_DO_days)
 DO_breaks <- classInt::classIntervals(DO_diffs, 10, "equal")
 ```
 
 Plots - diff in avg annual days crossing threshold between periods
 
 ```{r}
-#Temp: mid-hist diff map
+#Temp: mid-presentday diff map
 tm_shape(CA_shp) + 
   tm_polygons(fill = "#ccebc5", lwd = 0) + 
   tm_shape(period_diff_anom_points) + 
-  tm_dots(fill = "midhist_temp_days", 
+  tm_dots(fill = "midpresentday_temp_days", 
           size = 0.4, 
           fill.scale = tm_scale_intervals(values = "YlOrRd",
                                           breaks = temp_breaks$brks)) +
   tm_layout(bg.color = "#a6cee3") +
   tm_title(
-    "Increase in avg annual no. days above temp threshold from historic to mid-century",
+    "Increase in avg annual no. days above temp threshold from presentday to mid-century",
     position = tm_pos_out("center", "top"))
 #Temp: end-mid diff
 tm_shape(CA_shp) + 
@@ -1012,17 +851,17 @@ tm_shape(CA_shp) +
     position = tm_pos_out("center", "top"))
 
 
-#pH:mid-hist diff
+#pH:mid-presentday diff
 tm_shape(CA_shp) + 
   tm_polygons(fill = "#ccebc5", lwd = 0) + 
   tm_shape(period_diff_anom_points) + 
-  tm_dots(fill = "midhist_pH_days", 
+  tm_dots(fill = "midpresentday_pH_days", 
           size = 0.4, 
           fill.scale = tm_scale_intervals(values = "YlOrRd",
                                           breaks = pH_breaks$brks)) +
   tm_layout(bg.color = "#a6cee3") +
   tm_title(
-    "Increase in avg annual no. days below pH threshold from historic to mid-century",
+    "Increase in avg annual no. days below pH threshold from presentday to mid-century",
     position = tm_pos_out("center", "top"))
 #pH:end-mid diff
 tm_shape(CA_shp) + 
@@ -1038,17 +877,17 @@ tm_shape(CA_shp) +
     position = tm_pos_out("center", "top"))
 
 
-#DO: mid-hist diff
+#DO: mid-presentday diff
 tm_shape(CA_shp) + 
   tm_polygons(fill = "#ccebc5", lwd = 0) + 
   tm_shape(period_diff_anom_points) + 
-  tm_dots(fill = "midhist_DO_days", 
+  tm_dots(fill = "midpresentday_DO_days", 
           size = 0.4, 
           fill.scale = tm_scale_intervals(values = "YlOrRd",
                                           breaks = DO_breaks$brks)) +
   tm_layout(bg.color = "#a6cee3") +
   tm_title(
-    "Increase in avg annual no. days below DO threshold from historic to mid-century",
+    "Increase in avg annual no. days below DO threshold from presentday to mid-century",
     position = tm_pos_out("center", "top"))
 #DO: end-mid diff
 tm_shape(CA_shp) + 
@@ -1069,24 +908,24 @@ Plots - actual avg annual days per period and variable
 ```{r}
 
 #setting new breaks:
-all_temp <- c(period_diff$historic_avg_annual_days_above_temp_thresh, period_diff$midcen_avg_annual_days_above_temp_thresh, period_diff$endcen_avg_annual_days_above_temp_thresh) 
-all_pH <- c(period_diff$historic_avg_annual_days_below_pH_thresh, period_diff$midcen_avg_annual_days_below_pH_thresh, period_diff$endcen_avg_annual_days_below_pH_thresh)
-all_DO <- c(period_diff$historic_avg_annual_days_below_DO_thresh, period_diff$midcen_avg_annual_days_below_DO_thresh, period_diff$endcen_avg_annual_days_below_DO_thresh)
+all_temp <- c(period_diff$presentday_avg_annual_days_above_temp_thresh, period_diff$midcen_avg_annual_days_above_temp_thresh, period_diff$endcen_avg_annual_days_above_temp_thresh) 
+all_pH <- c(period_diff$presentday_avg_annual_days_below_pH_thresh, period_diff$midcen_avg_annual_days_below_pH_thresh, period_diff$endcen_avg_annual_days_below_pH_thresh)
+all_DO <- c(period_diff$presentday_avg_annual_days_below_DO_thresh, period_diff$midcen_avg_annual_days_below_DO_thresh, period_diff$endcen_avg_annual_days_below_DO_thresh)
 
 all_temp_breaks <- classInt::classIntervals(all_temp, 10, "equal")
 all_pH_breaks <- classInt::classIntervals(all_pH, 10, "equal")
 all_DO_breaks <- classInt::classIntervals(all_DO, 10, "equal")
 
 #same story as diff map
-#Temp - historic
+#Temp - presentday
 tm_shape(CA_shp) + 
   tm_polygons(fill = "#ccebc5", lwd = 0) + 
   tm_shape(period_diff_anom_points) + 
-  tm_dots(fill = "historic_avg_annual_days_above_temp_thresh", size = 0.4, 
+  tm_dots(fill = "presentday_avg_annual_days_above_temp_thresh", size = 0.4, 
           fill.scale = tm_scale_intervals(values = "YlOrRd", breaks = all_temp_breaks$brks)) +
   tm_layout(bg.color = "#a6cee3") +
   tm_title(
-    "Historic avg annual days above temp thresh",
+    "presentday avg annual days above temp thresh",
     position = tm_pos_out("center", "top"))
 #Temp - midcen
 tm_shape(CA_shp) + 
@@ -1110,15 +949,15 @@ tm_shape(CA_shp) +
     position = tm_pos_out("center", "top"))
 
 #shows diff story than diff map -- in midcen, more days below thresh in norcal. in endcen, much more days everywhere. but relatively the increase is more in socal.
-#pH - historic
+#pH - presentday
 tm_shape(CA_shp) + 
   tm_polygons(fill = "#ccebc5", lwd = 0) + 
   tm_shape(period_diff_anom_points) + 
-  tm_dots(fill = "historic_avg_annual_days_below_pH_thresh", size = 0.4, 
+  tm_dots(fill = "presentday_avg_annual_days_below_pH_thresh", size = 0.4, 
           fill.scale = tm_scale_intervals(values = "YlOrRd", breaks = all_pH_breaks$brks)) +
   tm_layout(bg.color = "#a6cee3") +
   tm_title(
-    "Historic avg annual days below pH thresh",
+    "presentday avg annual days below pH thresh",
     position = tm_pos_out("center", "top"))
 #pH - midcen
 tm_shape(CA_shp) + 
@@ -1142,15 +981,15 @@ tm_shape(CA_shp) +
     position = tm_pos_out("center", "top"))
 
 #same story as diff maps
-#DO - historic
+#DO - presentday
 tm_shape(CA_shp) + 
   tm_polygons(fill = "#ccebc5", lwd = 0) + 
   tm_shape(period_diff_anom_points) + 
-  tm_dots(fill = "historic_avg_annual_days_below_DO_thresh", size = 0.4, 
+  tm_dots(fill = "presentday_avg_annual_days_below_DO_thresh", size = 0.4, 
           fill.scale = tm_scale_intervals(values = "YlOrRd", breaks = all_DO_breaks$brks)) +
   tm_layout(bg.color = "#a6cee3") +
   tm_title(
-    "Historic avg annual days below DO thresh",
+    "presentday avg annual days below DO thresh",
     position = tm_pos_out("center", "top"))
 #DO - midcen
 tm_shape(CA_shp) + 
