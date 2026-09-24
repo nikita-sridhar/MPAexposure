@@ -51,6 +51,8 @@ library(heatmaply)
 library(ggpubr)
 library(ggrepel)
 library(flextable)
+library(clipr)
+library(emmeans)
 ```
 
 ```{r}
@@ -108,6 +110,7 @@ mpa <- merge(mpa, mpa_centroids,  by = "File")
 
 ```{r}
 
+#doesn't have channel isl geometry (a part of sb county)
 CA_shp <- st_read(here("./data/rawdata/shp/CA/cb_2025_06_cousub_500k/cb_2025_06_cousub_500k.shp")) %>%
   st_transform(crs = 4326) %>% #setting to wgs84 
   mutate(
@@ -118,9 +121,16 @@ CA_shp <- st_read(here("./data/rawdata/shp/CA/cb_2025_06_cousub_500k/cb_2025_06_
                        degy < 34.8 ~ "socal",
                        degy <= 34.14096 & degy >= 33.84145 & 
                          degx >= -120.54587 & degx <= -119.32878 ~ "channel"),
-    region = factor(region, levels = c("norca","centralca","channel","socal"))
+    region = factor(region, levels = c("socal","channel","centralca","norca"))
   )
 
+#want to make a separate polygon for channel islands so I can color it differently
+channel_bbox1 = st_bbox(c(xmin=-120.54587, ymin=33.84145, xmax=-119.32878, ymax=34.14096), crs = st_crs(CA_shp))
+channel_bbox2 = st_bbox(c(xmin=-119.78977, ymin=32.70343, xmax=-118.20716, ymax=33.64047), crs = st_crs(CA_shp))
+
+boxes_combined <- st_union(st_as_sfc(channel_bbox1), st_as_sfc(channel_bbox2))
+
+channel_clip <- st_intersection(CA_shp,boxes_combined)
 
 #data from here: https://data.ca.gov/dataset/california-marine-protected-areas-ds582
 mpa_shp <- st_read(here("./data/rawdata/shp/mpa/California_Marine_Protected_Areas_[ds582]/California_Marine_Protected_Areas_[ds582].shp")) %>%
@@ -140,30 +150,37 @@ region_cols <- c(
 )
 
 
-make_map <- function(bbox, title) {
-  tm_shape(CA_shp, bbox = bbox) +
+make_map <- function(bbox, title, legend) {
+    #CA baselayer
+    tm_shape(CA_shp, bbox = bbox) +
     tm_polygons(fill = "region",
                 fill.scale = tm_scale_categorical(values = region_cols),
                 fill_alpha = 0.5,
+                fill.legend = tm_legend(show = FALSE),
               lwd = 0) +
+   #channel islands layer to color correctly
+    tm_shape(channel_clip, bbox = bbox) +
+    tm_polygons(fill = "#66c2a5",
+                fill_alpha = 0.5,
+                lwd = 0) +
+   #mpas
     tm_shape(mpa_shp_filtered) +
     tm_polygons(fill = "region",
                 fill.scale = tm_scale_categorical(values = region_cols),
                 lwd = 0,
-                fill.legend = tm_legend(show = FALSE)) +
+                fill.legend = tm_legend(show = legend)) +
     tm_graticules(alpha = 0.1) +
-    tm_layout(bg.color = "#c6dfea",
-              frame = FALSE,
-              inner.margins = c(0.03, 0.03, 0.03, 0.03)) +
+    tm_layout(frame = FALSE,
+              inner.margins = c(0.03, 0.03, 0.03, 0.03),
+              component.autoscale = FALSE) +
     tm_title(title)
 }
 
-norcal <- make_map(c(-125, 37, -122, 42), "Northern California")
-centralca <- make_map(c(-123, 34.5, -120, 37.5), "Central California")
-channel <- make_map(c(-120.7, 33.3, -118.8, 34.25), "Channel Islands")
-socal <- make_map(c(-121, 31, -115, 35), "Southern California")
+norcal <- make_map(c(-125, 37, -122, 42), "Northern CA", FALSE)
+centralca <- make_map(c(-123, 34.5, -120, 37.5), "Central CA",FALSE)
+socal <- make_map(c(-121, 32.5, -117, 34.5), "Southern CA & Ch. Isl",TRUE)
 
-tmap_arrange(norcal, centralca, channel, socal, nrow = 1)
+tmap_arrange(socal,centralca,norcal,nrow = 1)
 ```
 
 ## Calculate climatology
@@ -382,7 +399,7 @@ scores$MPA_num <- sum$OBJECTID
 scores$region <- sum$region
 scores$period <- sum$period
 
-
+scores$period <- factor(scores$period,levels = c("presentday","midcen","endcen"))
 ```
 
 Plotting results
@@ -395,12 +412,10 @@ p <- fviz_pca_biplot(
   axes = c(1,2), #plots varimax rotated
   repel = TRUE,
   col.var = "black",
-  col.ind = sum$region,
-  pointshape = 19,
   label = "var",
-  labelsize = 3,
+  labelsize = 4,
   addEllipses = FALSE,
-  invisible = "quali"
+  invisible = "ind"
 ) 
 
 
@@ -412,10 +427,14 @@ p +
         color = region,
         shape = period),
     size = 2,
+    alpha = 0.7,
     inherit.aes = FALSE
   ) + 
   
   scale_color_manual(values = region_cols) +
+  scale_shape_manual(values = c(presentday = 16,
+                                midcen = 17,
+                                endcen = 15)) +
     
   
   labs(title = "All Period MPAs")
@@ -433,19 +452,16 @@ factors <- as.data.frame(pca_all$x) %>%
 #convert from long to wide (for period) 
   pivot_wider(id_cols = c("File","region","SHORTNAME"),
               names_from = "period",
-              values_from = c("PC1","PC2")) %>%
-  
-  #for ordering x axis of graphs
-  mutate(region = factor(region, levels = c("norca", "centralca", "channel", "socal")))
+              values_from = c("PC1","PC2")) 
 
 
 #mpa PC changes:
 mpa_change <- factors %>%
   
-  mutate("PC1_presentday_Mid-cen_change" = PC1_midcen - PC1_presentday,
-         "PC1_Mid-cen_End-cen_change" = PC1_endcen - PC1_midcen,
-         "PC2_presentday_Mid-cen_change" = PC2_midcen - PC2_presentday,
-         "PC2_Mid-cen_End-cen_change" = PC2_endcen - PC2_midcen) %>%
+  mutate("PC1_presentday_midcen_change" = PC1_midcen - PC1_presentday,
+         "PC1_presentday_endcen_change" = PC1_endcen - PC1_presentday,
+         "PC2_presentday_midcen_change" = PC2_midcen - PC2_presentday,
+         "PC2_presentday_endcen_change" = PC2_endcen - PC2_presentday) %>%
   
   pivot_longer(cols = 10:13, 
                names_to = "Trajectory", 
@@ -455,7 +471,9 @@ mpa_change <- factors %>%
   
   mutate(PC = substr(Trajectory,1,3), .after = Trajectory,
          Period = str_match(Trajectory, "^[^_]*_(.*)_[^_]*$")[, 2],
-         Period = sub("_", " \u2192 ",Period)) 
+         Period = sub("_", " \u2192 ",Period),
+         Period = factor(Period, levels = c("presentday → midcen","presentday → endcen")),
+         region = factor(region, levels = c("socal", "channel", "centralca", "norca"))) 
 
 #averaged over all MPAs---------------
 mpa_change_summary <- mpa_change  %>%
@@ -470,7 +488,6 @@ flextable(mpa_change_summary) %>%
   autofit()
 
 
-
 #averaged across regions: -------------------------
 region_mpa_change_summary <- mpa_change %>%
   group_by(Period, PC, region) %>%
@@ -480,11 +497,98 @@ region_mpa_change_summary <- mpa_change %>%
 arrange(PC, region) %>%
   
   #opacity for graph
-  mutate(opacity = ifelse(Period == "presentday → Mid-cen", 0.4, 1),
-         region = factor(region, levels = c("norca", "centralca", "channel", "socal")))
+  mutate(opacity = ifelse(Period == "presentday → midcen", 0.4, 1),
+         region = factor(region, levels = c("socal","channel","centralca","norca")))
 
 
-#graph of mean change in pc per region
+#contrasts -------------------------------------
+pc_change_mod <- lm(PC_diff ~ Period*PC*region, data = mpa_change)
+summary(pc_change_mod)
+anova(pc_change_mod)
+
+EMM <- emmeans(pc_change_mod, ~ Period*PC*region)
+
+
+pc_contrast <- contrast(EMM, method = "pairwise", by = c("Period","region")) %>% 
+  as.data.frame() %>%
+  mutate(p.value = ifelse(p.value < 0.01, "< 0.01", p.value),
+         across(c(estimate, SE, df, t.ratio),~ round(.x, 3)))
+
+flextable(pc_contrast) %>% 
+  set_caption("PC1 vs. PC2 contrasts within each region and period") %>%
+  autofit()
+
+
+
+region_contrast <- contrast(EMM, method = "pairwise", by = c("Period","PC")) %>% 
+  as.data.frame() %>%
+   mutate(p.value = ifelse(p.value < 0.01, "< 0.01", 
+                           round(p.value,3)),
+         across(c(estimate, SE, df, t.ratio),~ round(.x, 3)))
+
+flextable(region_contrast) %>% 
+  bold(i = ~ p.value < 0.01,
+        j = "p.value",
+    bold = TRUE) %>% 
+  set_caption("Regional contrasts within each PC and period") %>%
+  
+  autofit()
+
+
+
+period_contrast <- contrast(EMM, method = "pairwise", by = c("PC","region")) %>% 
+  as.data.frame() %>%
+    mutate(p.value = ifelse(p.value < 0.01, "< 0.01", p.value),
+         across(c(estimate, SE, df, t.ratio),~ round(.x, 3)))
+
+flextable(period_contrast) %>% 
+  set_caption("midcen vs. endcen contrasts within each PC and region") %>%
+  autofit()
+
+
+#based on the region contrast table
+sig_letters <- data.frame(
+  PC = c(
+    rep("PC1", 8),
+    rep("PC2", 8)
+  ),
+  Period = rep(
+    c(
+      "presentday → midcen",
+      "presentday → endcen"
+    ),
+    each = 4,
+    times = 2
+  ),
+  region = rep(
+    c("socal", "channel", "centralca", "norca"),
+    times = 4
+  ),
+  letter = c(
+    "a", "a", "a", "b",
+    "a", "b", "c", "d",
+    "a", "b", "a", "c",
+    "a", "b", "a", "c"
+  )
+)
+
+plot_data <- region_mpa_change_summary %>%
+  left_join(
+    sig_letters,
+    by = c("PC", "Period", "region")
+  ) %>%
+  mutate(
+    Period = factor(
+      Period,
+      levels = c(
+        "presentday → midcen",
+        "presentday → endcen"
+      )
+    )
+  )
+  
+
+#graph of mean change in pc per region ---------------------------------
 ggplot(region_mpa_change_summary, aes(x = region, y = mean_pc_change, 
                                       fill = region, alpha = opacity, group = interaction(region, Period))) +
   geom_col(position = position_dodge(width = 0.9)) +
@@ -495,11 +599,27 @@ ggplot(region_mpa_change_summary, aes(x = region, y = mean_pc_change,
                 color = "#708090") +
   scale_fill_manual(values = region_cols) +
   scale_alpha_identity(name = "Period",
-                       labels = c("presentday → Mid-cen","Mid-cen → End-cen"),
+                       labels = c("presentday → midcen","presentday → endcen"),
                        breaks = c(0.4,1),
                        guide = "legend") +
+  #signif letters
+  geom_text(
+    data = plot_data,
+    aes(
+      x = region,
+      y = mean_pc_change + sd_pc_change + 0.08,
+      label = letter,
+      group = Period
+    ),
+    position = position_dodge(width=0.9),
+    fontface = "bold",
+    size = 5
+  ) +
   facet_wrap(~PC, scales = "free")+
-  theme_bw() 
+  theme_bw() +
+  labs(
+    caption = "Different letters indicate significant differences among regions within each period (p < 0.01). Comparisons were not made between periods."
+  )
 
   
 ```
@@ -510,19 +630,19 @@ Residual analysis:
 
 ```{r}
 #running lm model of presentday vs. midcen and presentday vs. endcen
-pc1_presentday_midcen_mod <- lm(PC1_midcen ~ PC1_presentday, data = factors)
-pc1_presentday_endcen_mod <- lm(PC1_endcen ~ PC1_presentday, data = factors)
+PC1_presentday_midcen_mod <- lm(PC1_midcen ~ PC1_presentday, data = factors)
+PC1_presentday_endcen_mod <- lm(PC1_endcen ~ PC1_presentday, data = factors)
 
-pc2_presentday_midcen_mod <- lm(PC2_midcen ~ PC2_presentday, data = factors)
-pc2_presentday_endcen_mod <- lm(PC2_endcen ~ PC2_presentday, data = factors)
+PC2_presentday_midcen_mod <- lm(PC2_midcen ~ PC2_presentday, data = factors)
+PC2_presentday_endcen_mod <- lm(PC2_endcen ~ PC2_presentday, data = factors)
 
 #saving residuals
 pc_residuals <- factors %>% 
   
-  mutate(pc1_presentday_midcen = residuals(pc1_presentday_midcen_mod),
-         pc1_presentday_endcen = residuals(pc1_presentday_endcen_mod),
-         pc2_presentday_midcen = residuals(pc2_presentday_midcen_mod),
-         pc2_presentday_endcen = residuals(pc2_presentday_endcen_mod)) %>%
+  mutate(PC1_presentday_midcen = residuals(PC1_presentday_midcen_mod),
+         PC1_presentday_endcen = residuals(PC1_presentday_endcen_mod),
+         PC2_presentday_midcen = residuals(PC2_presentday_midcen_mod),
+         PC2_presentday_endcen = residuals(PC2_presentday_endcen_mod)) %>%
  
   select(-c(4:9)) %>%
   
@@ -549,13 +669,55 @@ pc_residuals <- factors %>%
 
   #opacity for graph
   mutate(opacity = ifelse(Period == "presentday → midcen", 0.4, 1),
-         region = factor(region, levels = c("norca", "centralca", "channel", "socal")),
+         region = factor(region, levels = c("socal","channel","centralca","norca")),
          Period = factor(Period, levels = c("presentday → midcen", "presentday → endcen")))
 
 #summary for bar chart
 region_pc_residuals <- pc_residuals %>%
   distinct(region, PC, Period, region_mean, region_sd, opacity)  %>%
   arrange(PC, region) 
+
+#CONTRASTS
+residual_mod <- lm(region_mean ~ Period*PC*region, data = pc_residuals)
+
+EMM_residual <- emmeans(residual_mod, ~ Period*PC*region)
+
+residual_contrast <- contrast(EMM_residual, method = "pairwise", by = c("Period","region")) %>% 
+  as.data.frame() %>%
+  mutate(p.value = ifelse(p.value < 0.01, "< 0.01", p.value),
+         across(c(estimate, SE, df, t.ratio),~ round(.x, 3)))
+
+flextable(residual_contrast) %>% 
+  set_caption("PC1 vs. PC2 contrasts within each region and period") %>%
+  autofit()
+
+
+
+region_contrast <- contrast(EMM_residual, method = "pairwise", by = c("Period","PC")) %>% 
+  as.data.frame() %>%
+   mutate(p.value = ifelse(p.value < 0.01, "< 0.01", 
+                           round(p.value,3)),
+         across(c(estimate, SE, df, t.ratio),~ round(.x, 3)))
+
+flextable(region_contrast) %>% 
+  bold(i = ~ p.value < 0.01,
+        j = "p.value",
+    bold = TRUE) %>% 
+  set_caption("Regional contrasts within each PC and period") %>%
+  
+  autofit()
+
+
+
+period_contrast <- contrast(EMM_residual, method = "pairwise", by = c("PC","region")) %>% 
+  as.data.frame() %>%
+    mutate(p.value = ifelse(p.value < 0.01, "< 0.01", p.value),
+         across(c(estimate, SE, df, t.ratio),~ round(.x, 3)))
+
+flextable(period_contrast) %>% 
+  set_caption("midcen vs. endcen contrasts within each PC and region") %>%
+  autofit()
+
 
 
 #plot residuals and mean region residual for pc1 and pc2
@@ -591,67 +753,16 @@ ggplot(pc_residuals, aes(x = region, y = region_mean,
 
 ```
 
-For PC2
+#### Combining PC change and residual for supplemental
 
 ```{r}
-factors_pc2 <- as.data.frame(pca_all$x) %>%
-  select("PC2") %>%
-  cbind(sum) %>%
-  pivot_wider(id_cols = c("File","region","SHORTNAME"),
-              names_from = "period",
-              values_from = "PC2",
-              names_prefix = "PC2_") %>%
-  select(File, region, SHORTNAME, PC2_presentday, PC2_midcen, PC2_endcen)
 
-#running lm model of presentday vs. midcen and presentday vs. endcen
-presentday_midcen_mod_pc2 <- lm(PC2_midcen ~ PC2_presentday, data = factors_pc2)
-presentday_endcen_mod_pc2 <- lm(PC2_endcen ~ PC2_presentday, data = factors_pc2)
-midcen_endcen_mod_pc2 <- lm( PC2_endcen ~ PC2_midcen, data = factors_pc2)
+#need to have full name eventually
+mpa_complete_change_summary <- mpa_change %>%
+  left_join(pc_residuals, by = c("region", "SHORTNAME","PC","Period")) %>%
+  select(SHORTNAME,region,PC,Period,PC_diff,residual) 
 
-summary(presentday_midcen_mod_pc2)
-summary(presentday_endcen_mod_pc2)
-
-#saving residuals and fitted values. - scaled so wrt 0 (not sure if need to scale or not)
-factors2_pc2 <- factors_pc2 %>% 
-  mutate(residual_presentday_midcen = residuals(presentday_midcen_mod_pc2),
-         residual_presentday_endcen = residuals(presentday_endcen_mod_pc2),
-         residual_midcen_endcen = residuals(midcen_endcen_mod_pc2),
-         scaled_residual_presentday_midcen = as.numeric(scale(residuals(presentday_midcen_mod_pc2))),
-         scaled_residual_presentday_endcen =  as.numeric(scale(residuals(presentday_endcen_mod_pc2))),
-         scaled_residual_midcen_endcen =  as.numeric(scale(residuals(midcen_endcen_mod_pc2))),
-         scaled_PC2_presentday = scale(factors$PC2_presentday)) 
-  
-
-
-#running an lm between scaled_predicted_presentday_midcen and scaled_predicted_presentday_endcen bc this is the line in p1, and want slope to extend the line
-bestfit <-lm(factors2_pc2$scaled_residual_presentday_endcen ~ factors2_pc2$scaled_residual_presentday_midcen)
-
-summary(bestfit)
-
-intercept <- as.numeric(coef(bestfit)[1])
-slope <- as.numeric(coef(bestfit)[2])
-
-factors3_pc2 <- factors2_pc2 %>%
-  mutate(dist_to_line = abs(slope * scaled_residual_presentday_midcen - 
-                              scaled_residual_presentday_endcen + intercept)
-                        / sqrt(slope^2 + (-1)^2)) %>%
-  mutate(label = case_when(dist_to_line > 1.3 ~ SHORTNAME, 
-                           abs(scaled_residual_presentday_midcen) > 1.5 & 
-                           abs(scaled_residual_presentday_endcen) > 1.5 ~ 
-                          SHORTNAME, .default = NA))
-
-
-#presentday vs midcen residual plot - added scaled predicted to scaled residual
-pc2 <- ggplot(factors3, aes(x = scaled_residual_presentday_midcen, y = scaled_residual_presentday_endcen)) +
-  geom_point(aes(color = region)) +  
-  geom_abline(slope = slope, intercept = intercept, linewidth = 1) +
-  geom_hline(yintercept = 0, color = "gray") +
-  geom_vline(xintercept = 0, color = "gray")  +
-  ggtitle("Mid century and End century PC2 residuals with fitted model line") +
-  geom_text_repel(aes(label = label, color = region), size = 2.5) +
-  theme_bw()
-
-pc2
+clipr::write_clip(mpa_complete_change_summary)
 
 ```
 
