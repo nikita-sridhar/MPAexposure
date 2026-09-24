@@ -60,15 +60,15 @@ library(emmeans)
 #| message: false
 
 #Read mpa data, convert DO units, add a column for time period, and one for difference between mid/end cen and presentday.
-mpa <- read_csv(here("data/processeddata/model/IPSLmpa.csv")) %>% 
+mpa <- read_csv(here("data/processeddata/model/IPSLmpa.csv")) %>%
   mutate(DO_mmolL = DO_surf/1000,
          DO_mgL = convert_DO(DO_mmolL, from = "mmol/L", to = "mg/L")) %>% 
-  filter(Year <= 2020|
-         Year >= 2040 & Year <= 2060|
-         Year >= 2080 & Year <= 2100) %>%
-  mutate(period = case_when((Year <= 2020) ~ "presentday", 
-                           (Year %in% c(2040:2060)) ~ "midcen",
-                           (Year %in% c(2080:2100)) ~ "endcen")) %>%
+  filter(Year <= 2030|
+         Year >= 2035 & Year <= 2065|
+         Year >= 2070 & Year <= 2100) %>%
+  mutate(period = case_when((Year <= 2030) ~ "presentday", 
+                           (Year %in% c(2035:2065)) ~ "midcen",
+                           (Year %in% c(2070:2100)) ~ "endcen")) %>%
   select(-T_bot, -DO_bot, -pH_bot,-DO_surf,-DO_mmolL) %>%
   rename(Temp = T_surf,
          DO = DO_mgL,
@@ -624,9 +624,7 @@ ggplot(region_mpa_change_summary, aes(x = region, y = mean_pc_change,
   
 ```
 
-## NMDS Plots
-
-Residual analysis:
+## Residual analysis
 
 ```{r}
 #running lm model of presentday vs. midcen and presentday vs. endcen
