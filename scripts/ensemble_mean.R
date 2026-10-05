@@ -234,7 +234,7 @@ sumstat <- mod_mpa %>%
   mutate(temp_deviation = Temp - T_clim, #this should be for the given julian day, right?
          pH_deviation = pH - pH_clim,
          DO_deviation = DO - DO_clim) %>%
-  filter(Month == c(5,6,7,8,9)) %>%
+  filter(Month %in% c(5,6,7,8,9)) %>%
   
   #find event/seasonal SD and other sum stats 
   group_by(File, period) %>%
