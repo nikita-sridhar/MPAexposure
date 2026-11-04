@@ -267,71 +267,6 @@ GFDLsumstat <- calculate_sumstat(GFDLmpa, GFDL_interp_all, GFDLseasonal_SD)
 HADLEYsumstat <- calculate_sumstat(HADLEYmpa, HADLEY_interp_all, HADLEYseasonal_SD)
 
 
-#compare PCA ------------------------------------------------------------
-make_pca <- function(mod_sumstat){
-  
-  model_name <- sub("sumstat.*", "", deparse(substitute(mod_sumstat)))
-  
-  sumstat_4pca <- mod_sumstat %>%
-    select(-OBJECTID, -NAME, -File, -SHORTNAME,
-         -degx, -degy, -region, -period)
-
-  # PCA on all observations
-  pca <- prcomp(sumstat_4pca, scale. = TRUE)
-
-  #varimax rotation
-  n_comp <- 2
-  raw_loadings <- pca$rotation[, 1:n_comp]
-  varimax_res  <- varimax(raw_loadings)
-  pca$rotation[, 1:n_comp] <- varimax_res$loadings
-  scaled_data <- scale(sumstat_4pca)
-  pca$x[, 1:n_comp] <- scaled_data %*% varimax_res$loadings
-  
-  #Keep first 3 PCs and add metada
-  scores <- as.data.frame(pca$x[,1:3])
-  scores$MPA <- mod_sumstat$NAME
-  scores$MPA_num <- mod_sumstat$OBJECTID
-  scores$region <- mod_sumstat$region
-  scores$period <- factor(mod_sumstat$period, levels = c("presentday","midcen","endcen"))
-
-  #pca biplot
-  region_cols <- c("norca" = "#8da0cb","centralca" = "#fc8d62", 
-                   "channel" = "#66c2a5","socal" = "#e78ac3")
-
-  pca_plot <- fviz_pca_biplot(
-    pca, axes = c(1,2), repel = TRUE, col.var = "black",
-    addEllipses = FALSE, invisible = "ind"
-    ) +
-  
-    geom_point(
-      data = scores, 
-      aes(PC1, PC2, color = region, shape = period),
-      size = 2, alpha = 0.7, inherit.aes = FALSE
-    ) + 
-    scale_color_manual(values = region_cols) +
-    scale_shape_manual(values = c(presentday = 16,midcen = 17,endcen = 15)) +
-    labs(title = paste0(model_name, " PCA"))
-  
-  if (grepl("HADLEY|ensemble", model_name, ignore.case = TRUE)) {
-    pca_plot <- pca_plot + scale_x_reverse()
-  }
-
-
-  return(list(scores = scores, plot = pca_plot))
-
-}
-
-#pca 
-IPSLpca <- make_pca(IPSLsumstat)
-GFDLpca <- make_pca(GFDLsumstat)
-HADLEYpca <- make_pca(HADLEYsumstat)
-
-IPSLpca$plot + theme(legend.position = "none") +
-GFDLpca$plot + theme(legend.position = "none") +
-HADLEYpca$plot
-
-
-
 # ensemble mean -----------------------------------------------------------
 
 #add model id 
@@ -369,14 +304,13 @@ ensemble_sumstat <- IPSLsumstat %>%
   select(1:8, T_mean, T_low10, T_high10, T_eventSD, T_seasonalSD,
          pH_mean, pH_low10, pH_high10, pH_eventSD, pH_seasonalSD,
          DO_mean, DO_low10, DO_high10, DO_eventSD, DO_seasonalSD)
-  
 
 
-# Run analyses w ensemble mean --------------------------------------------
-ensemble_pca <- make_pca(ensemble_sumstat)
-print(ensemble_pca$plot)
+region_cols <- c("norca" = "#8da0cb","centralca" = "#fc8d62", 
+                 "channel" = "#66c2a5","socal" = "#e78ac3")
 
 
+#compare PCA ------------------------------------------------------------
 
 
 

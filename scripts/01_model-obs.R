@@ -1,60 +1,85 @@
 #File created 11/6/2023
 #Authored by Nikita Sridhar
+
+#to figure out how sites were chosen, look at old model-obs file! 
 #Comparison of model and observational T/pH/DO data using PDFs and CDFs to determine
 #model fit
 
 library(tidyverse)
 library(ggpubr)
 library(lubridate)
+library(purrr)
+library(broom)
 
+#new
+# Get paths of all .txt files in a specific directory
 
+#obs sites metadata
+sites <- read_csv("data/processeddata/obs_sites.csv") %>%
+  rename(File = 1) 
 
-# mod setup ---------------------------------------------------------------
+#load model data at observational data sites
+load_mod <- function(mod_run){
 
-mod <- read_csv("data/processeddata/model/mod_all30m.csv") %>%
-  rename(mod_T = T_surf,
-         mod_pH = pH_surf,
-         mod_DO = DO_surf) %>%
-  mutate(time_utc = lubridate::ymd(paste(Year, Month, Day, sep="-"))) %>%
-  select(File, time_utc, mod_T, mod_pH, mod_DO) %>%
-  #adding regions
-  mutate("region" = case_when(
-    File %in% c("tphdo_sta_7.csv","tphdo_sta_14.csv","tphdo_sta_kristy1.csv") ~ "Channel Islands",
-    File %in% c("tphdo_sta_19.csv","tphdo_sta_kristy4.csv") ~ "Central CA",
-    File %in% c("tphdo_sta_30.csv", "tphdo_sta_31.csv","tphdo_sta_44.csv","tphdo_sta_kristy2.csv","tphdo_sta_kristy3.csv") ~ "Southern CA",
-    File %in% c("tphdo_sta_45.csv","tphdo_sta_56.csv","tphdo_sta_kristy5.csv","tphdo_sta_kristy6.csv") ~ "Northern CA"
-  ))
+  file_paths <- list.files(path = paste0("data/rawdata/model/for_obs_comparison/surface_values/Sites_",mod_run), 
+                           pattern = "\\.txt$", full.names = TRUE)
   
+  mod_df <- file_paths %>% 
+    set_names(basename(.)) %>% # Optional: cleans the path to just show "filename.txt"
+    map_dfr(~read_csv(.x, col_names = FALSE), #for all filepaths, read csv and bind rows into 1 df
+            .id = "file_source") %>% #per row, include the id as the file name
+    
+    rename(Year = X1,
+           Month = X2,
+           Day = X3,
+           T = X4,
+           pH = X5,
+           DO = X6) %>%
+    
+    mutate(File = as.double(stringr::str_extract(file_source, "\\d+")),
+           julianday = yday(make_date(Year,Month,Day))) %>%
+    
+    relocate(File, .before = 1) %>%
+    
+    filter(Year >= 2004 & Year < 2022) %>%
+    select(-file_source) %>%
+    
+    left_join(sites, by = "File")
+  
+    
+  return(mod_df)
+  }
 
+HADLEY_mod <- load_mod("HADLEY")
+IPSL_mod <- load_mod("IPSL")
+HADLEY_mod <- load_mod("HADL")
+
+    
 # obs setup ---------------------------------------------------------------
 
-obs <- load("data/rawdata/obs/for model-obs comparison/clean_all_light.RData")
-obs <- light %>%
-  rename(File = dataset_id) %>%
+obs_all <- load("data/rawdata/obs/for model-obs comparison/clean_all_light.RData")
+obs_all <- light %>%
+  rename(site = dataset_id) %>%
   #filtering all datasets based on prev exploration of longest best quality across regions
-  filter(File %in% c(7,14,19,30,31,44,45,40,56)) %>%
+  filter(site %in% c(7,14,19,30,31,44,45,40,56)) %>%
   #dataset 40 is kristy, but contains multiple coords, so separating those here
-  within(File[File == 40 & latitude == 33.4169 & longitude == -118.3977] <- 'kristy1') %>%
-  within(File[File == 40 & latitude == 33.5421 & longitude == -117.7947] <- 'kristy2') %>%
-  within(File[File == 40 & latitude == 35.2412 & longitude == -120.8955] <- 'kristy3') %>%
-  within(File[File == 40 & latitude == 36.0685 & longitude == -121.6016] <- 'kristy4') %>%
-  within(File[File == 40 & latitude == 38.946 & longitude == -123.7389] <- 'kristy5') %>%
-  within(File[File == 40 & latitude == 39.2711 & longitude == -123.7947] <- 'kristy6') 
+  within(site[site == 40 & latitude == 33.4169 & longitude == -118.3977] <- 'kristy1') %>%
+  within(site[site == 40 & latitude == 33.5421 & longitude == -117.7947] <- 'kristy2') %>%
+  within(site[site == 40 & latitude == 35.2412 & longitude == -120.8955] <- 'kristy3') %>%
+  within(site[site == 40 & latitude == 36.0685 & longitude == -121.6016] <- 'kristy4') %>%
+  within(site[site == 40 & latitude == 38.946 & longitude == -123.7389] <- 'kristy5') %>%
+  within(site[site == 40 & latitude == 39.2711 & longitude == -123.7947] <- 'kristy6') 
 rm(light)
 
-obs_means <- obs %>% #calculating daily avgs for temp, ph, do
-  group_by(File, time_utc, longitude, latitude) %>%
+obs <- obs_all %>% #calculating daily avgs for temp, ph, do
+  group_by(site, time_utc, longitude, latitude) %>%
   summarize(depth_m = mean(depth_m, na.rm=TRUE),
-            obs_T = mean(t_C, na.rm = TRUE), 
-            obs_pH = mean(pH_total, na.rm = TRUE), 
-            obs_DO = mean(do_umolkg, na.rm = TRUE),
+            T = mean(t_C, na.rm = TRUE), 
+            pH = mean(pH_total, na.rm = TRUE), 
+            DO = mean(do_umolkg, na.rm = TRUE),
             .groups = "drop") %>%
-  #adding regions
-  mutate("region" = case_when(
-    File %in% c("7","14","kristy1") ~ "Channel Islands",
-    File %in% c("19","kristy4") ~ "Central CA",
-    File %in% c("30", "31","44","kristy2","kristy3") ~ "Southern CA",
-    File %in% c("45","56","kristy5","kristy6") ~ "Northern CA")) %>%
+  
+  left_join(sites, by = c("site", "longitude", "latitude")) %>%
   
   #add date/month/year
   mutate(Year = year(time_utc),
@@ -63,168 +88,10 @@ obs_means <- obs %>% #calculating daily avgs for temp, ph, do
          julianday = yday(time_utc))
 
 #turning NaN into NA
-obs_means$obs_T[is.nan(obs_means$obs_T)]<-NA
-obs_means$obs_pH[is.nan(obs_means$obs_pH)]<-NA
-obs_means$obs_DO[is.nan(obs_means$obs_DO)]<-NA
+obs$T[is.nan(obs$T)]<-NA
+obs$pH[is.nan(obs$pH)]<-NA
+obs$DO[is.nan(obs$DO)]<-NA
 
-#write.csv(obs_means, file = "./data/processeddata/obs_for_comparison.csv")
-
-obs_summary <- obs_means %>%
-  group_by(File,region) %>%
-  summarise(m = mean(region),
-            temp_count = sum(!is.na(obs_T)), #num of observations
-            pH_count = sum(!is.na(obs_pH)),
-            DO_count = sum(!is.na(obs_DO)))
-
-
-# plotting map of obs sites -----------------------------------------------
-obs_sf <- st_as_sf(obs_means, coords = c("longitude", "latitude"), crs = 4326)
-
-#plotting obs sites (might need to run map part from mpaexposure.qmd first)
-make_obs_mpa_map <- function(bbox, title, legend) {
-  #CA baselayer
-  tm_shape(CA_shp, bbox = bbox) +
-    tm_polygons(fill = "region",
-                fill.scale = tm_scale_categorical(values = region_cols),
-                fill_alpha = 0.5,
-                fill.legend = tm_legend(show = FALSE),
-                lwd = 0) +
-    #channel islands layer to color correctly
-    tm_shape(channel_clip, bbox = bbox) +
-    tm_polygons(fill = "#66c2a5",
-                fill_alpha = 0.5,
-                lwd = 0) +
-    #mpas
-    tm_shape(mpa_shp_filtered) +
-    tm_polygons(fill = "region",
-                fill.scale = tm_scale_categorical(values = region_cols),
-                lwd = 0,
-                fill.legend = tm_legend(show = legend)) +
-    tm_graticules(alpha = 0.1) +
-    tm_layout(frame = FALSE,
-              inner.margins = c(0.03, 0.03, 0.03, 0.03),
-              component.autoscale = FALSE) +
-    #add obs time series:
-    tm_shape(obs_sf) +
-    tm_dots()+
-    tm_title(title)
-}
-
-norcal <- make_obs_mpa_map(c(-125, 37, -122, 42), "Northern CA", FALSE)
-centralca <- make_obs_mpa_map(c(-123, 34.5, -120, 37.5), "Central CA",FALSE)
-socal <- make_obs_mpa_map(c(-121, 32.5, -117, 34.5), "Southern CA & Ch. Isl",TRUE)
-
-tmap_arrange(socal,centralca,norcal,nrow = 1)
-
-
-# pdf/cdf analysis --------------------------------------------------------
-
-#pdf - NorCA
-norcal_temp <- ggplot() + 
-  geom_density(data = mod%>%filter(region == "Northern CA"), fill = "green", alpha = 0.5, aes(mod_T)) +
-  geom_density(data = obs_meanss%>%filter(region == "Northern CA"), fill = "red", alpha = 0.4, aes(obs_T)) +
-  ggtitle("Northern CA T fit") +
-  theme_classic()+
-  labs(x = "Temperature (C)", y = "Probability density")
-norcal_ph <- ggplot() + 
-  geom_density(data = mod%>%filter(region == "Northern CA"), fill = "green", alpha = 0.5, aes(mod_pH)) +
-  geom_density(data = obs_means%>%filter(region == "Northern CA"), fill = "red", alpha = 0.4, aes(obs_pH)) +
-  ggtitle("Northern CA pH fit")+
-  theme_classic()+
-  labs(x = "pH", y = "Probability density")
-norcal_do <- ggplot() + 
-  geom_density(data = mod%>%filter(region == "Northern CA"), fill = "green", alpha = 0.5, aes(mod_DO)) +
-  geom_density(data = obs_means%>%filter(region == "Northern CA"), fill = "red", alpha = 0.4, aes(obs_DO)) +
-  ggtitle("Northern CA DO fit")+
-  theme_classic()+
-  labs(x = "DO", y = "Probability density")
-
-#pdf - CenCA
-cenca_temp <- ggplot() + 
-  geom_density(data = mod%>%filter(region == "Central CA"), fill = "green", alpha = 0.5, aes(mod_T)) +
-  geom_density(data = obs%>%filter(region == "Central CA"), fill = "red", alpha = 0.4, aes(obs_T)) +
-  ggtitle("Central CA T fit")  +
-  theme_classic()+
-  labs(x = "Temperature (C)", y = "Probability density")
-cenca_ph <- ggplot() + 
-  geom_density(data = mod%>%filter(region == "Central CA"), fill = "green", alpha = 0.5, aes(mod_pH)) +
-  geom_density(data = obs%>%filter(region == "Central CA"), fill = "red", alpha = 0.4, aes(obs_pH)) +
-  ggtitle("Central CA pH fit")+
-  theme_classic()+
-  labs(x = "pH", y = "Probability density")
-cenca_do <- ggplot() + 
-  geom_density(data = mod%>%filter(region == "Central CA"), fill = "green", alpha = 0.5, aes(mod_DO)) +
-  geom_density(data = obs%>%filter(region == "Central CA"), fill = "red", alpha = 0.4, aes(obs_DO)) +
-  ggtitle("Central CA DO fit")+
-  theme_classic()+
-  labs(x = "DO", y = "Probability density")
-
-
-
-#pdf - SoCA
-socal_temp <- ggplot() + 
-  geom_density(data = mod%>%filter(region == "Southern CA"), fill = "green", alpha = 0.5, aes(mod_T)) +
-  geom_density(data = obs%>%filter(region == "Southern CA"), fill = "red", alpha = 0.4, aes(obs_T)) +
-  ggtitle("Southern CA T fit") +
-  theme_classic()+
-  labs(x = "Temperature (C)", y = "Probability density")
-socal_ph <- ggplot() + 
-  geom_density(data = mod%>%filter(region == "Southern CA"), fill = "green", alpha = 0.5, aes(mod_pH)) +
-  geom_density(data = obs%>%filter(region == "Southern CA"), fill = "red", alpha = 0.4, aes(obs_pH)) +
-  ggtitle("Southern CA pH fit")+
-  theme_classic()+
-  labs(x = "pH", y = "Probability density")
-socal_do <- ggplot() + 
-  geom_density(data = mod%>%filter(region == "Southern CA"), fill = "green", alpha = 0.5, aes(mod_DO)) +
-  geom_density(data = obs%>%filter(region == "Southern CA"), fill = "red", alpha = 0.4, aes(obs_DO)) +
-  ggtitle("Southern CA DO fit") +
-  theme_classic()+
-  labs(x = "DO", y = "Probability density")
-
-
-#pdf - channel isl
-channel_temp <- ggplot() + 
-  geom_density(data = mod%>%filter(region == "Channel Islands"), fill = "green", alpha = 0.5, aes(mod_T)) +
-  geom_density(data = obs%>%filter(region == "Channel Islands"), fill = "red", alpha = 0.4, aes(obs_T)) +
-  ggtitle("Channel Islands T fit") +
-  theme_classic()+
-  labs(x = "Temperature (C)", y = "Probability density")
-channel_ph <- ggplot() + 
-  geom_density(data = mod%>%filter(region == "Channel Islands"), fill = "green", alpha = 0.5, aes(mod_pH)) +
-  geom_density(data = obs%>%filter(region == "Channel Islands"), fill = "red", alpha = 0.4, aes(obs_pH)) +
-  ggtitle("Channel Islands pH fit")+
-  theme_classic()+
-  labs(x = "pH", y = "Probability density")
-
-#only adding legend to this one bc in ggarrange it will apply to all
-channel_do <- ggplot() + 
-  geom_density(data = mod%>%filter(region == "Channel Islands"),
-               aes(x = mod_DO, fill="mod"),
-               alpha = 0.5) +
-  geom_density(data = obs%>%filter(region == "Channel Islands"), 
-               aes(x = obs_DO, fill = "obs"), 
-               alpha = 0.4) +
-
-  scale_fill_manual(name = " ",
-                    values = c("mod"="green","obs"="red"),
-                    labels = c("Model","Observation")) +
-  ggtitle("Channel Islands DO fit") +
-  theme_classic()+
-  labs(x = "DO", y = "Probability density") 
-
-
-ggarrange(norcal_temp, norcal_ph, norcal_do, cenca_temp, cenca_ph, cenca_do, 
-          socal_temp, socal_ph, socal_do, channel_temp, channel_ph, channel_do,
-          labels = c("A","B","C","D", "E", "F", "G", "H", "I", "K", "L", "M"),
-          ncol = 3, nrow = 4, 
-          common.legend = TRUE,
-          legend = "bottom")
-
-
-#cdf
-ggplot() + 
-  stat_ecdf(data = mod%>%filter(region == "Northern CA"), color = "green", alpha = 0.5, aes(mod_T)) +
-  stat_ecdf(data = obs%>%filter(region == "Northern CA"), color = "red", alpha = 0.4, aes(obs_T))
 
 
 # Summary stat comparison -------------------------------------------------
@@ -232,16 +99,42 @@ ggplot() +
 #data gaps in obs data (i.e. sometimes only one dataset for temp and no ph/do)
 #should try this new code w actual model projections - might be better and slightly diff
 
+#OBS
+
 #"climatology"
-obs_clim <- obs_means %>%
+obs_clim <- obs %>%
   group_by(File, Month) %>%
-  summarise(T_clim = mean(obs_T, na.rm = TRUE), 
-            pH_clim = mean(obs_pH, na.rm = TRUE), 
-            DO_clim =   mean(obs_DO, na.rm = TRUE),
+  summarise(T_clim = mean(T, na.rm = TRUE), 
+            pH_clim = mean(pH, na.rm = TRUE), 
+            DO_clim =   mean(DO, na.rm = TRUE),
             .groups = "drop")
 
+
+
+HADLEYmod_clim <- HADLEY_mod %>%
+  group_by(File, Month) %>%
+  summarise(T_clim = mean(T, na.rm = TRUE), 
+            pH_clim = mean(pH, na.rm = TRUE), 
+            DO_clim =   mean(DO, na.rm = TRUE),
+            .groups = "drop")
+
+IPSLmod_clim <- IPSL_mod %>%
+  group_by(File, Month) %>%
+  summarise(T_clim = mean(T, na.rm = TRUE), 
+            pH_clim = mean(pH, na.rm = TRUE), 
+            DO_clim =   mean(DO, na.rm = TRUE),
+            .groups = "drop")
+
+HADLEYmod_clim <- HADLEY_mod %>%
+  group_by(File, Month) %>%
+  summarise(T_clim = mean(T, na.rm = TRUE), 
+            pH_clim = mean(pH, na.rm = TRUE), 
+            DO_clim =   mean(DO, na.rm = TRUE),
+            .groups = "drop")
+
+
 #interpolation
-obslist = unique(obs_means$File) #just to get mpa names doesn't matter that it's ipsl
+obslist = unique(obs$File) #just to get mpa names doesn't matter that it's ipsl
 obs_site = rep(NA, 365*14) #14 obs sites. previously mpas
 julianday = rep(1:365, 14)
 interp = rep(NA, 365*14)
@@ -351,11 +244,35 @@ obs_pH_interp <- interpolate(obs_clim, "pH_clim")
 obs_DO_interp <- interpolate(obs_clim, "DO_clim")
 
 
+HADLEYmod_temp_interp <- interpolate(HADLEYmod_clim, "T_clim")
+HADLEYmod_pH_interp <- interpolate(HADLEYmod_clim, "pH_clim")
+HADLEYmod_DO_interp <- interpolate(HADLEYmod_clim, "DO_clim")
+
+IPSLmod_temp_interp <- interpolate(IPSLmod_clim, "T_clim")
+IPSLmod_pH_interp <- interpolate(IPSLmod_clim, "pH_clim")
+IPSLmod_DO_interp <- interpolate(IPSLmod_clim, "DO_clim")
+
+HADLEYmod_temp_interp <- interpolate(HADLEYmod_clim, "T_clim")
+HADLEYmod_pH_interp <- interpolate(HADLEYmod_clim, "pH_clim")
+HADLEYmod_DO_interp <- interpolate(HADLEYmod_clim, "DO_clim")
+
+
+
 obs_interp_all <- obs_temp_interp %>%
   left_join(obs_pH_interp, by = c("File", "julianday")) %>%
   left_join(obs_DO_interp, by = c("File", "julianday"))
 
+HADLEYmod_interp_all <- HADLEYmod_temp_interp %>%
+  left_join(HADLEYmod_pH_interp, by = c("File", "julianday")) %>%
+  left_join(HADLEYmod_DO_interp, by = c("File", "julianday"))
 
+IPSLmod_interp_all <- IPSLmod_temp_interp %>%
+  left_join(IPSLmod_pH_interp, by = c("File", "julianday")) %>%
+  left_join(IPSLmod_DO_interp, by = c("File", "julianday"))
+
+HADLEYmod_interp_all <- HADLEYmod_temp_interp %>%
+  left_join(HADLEYmod_pH_interp, by = c("File", "julianday")) %>%
+  left_join(HADLEYmod_DO_interp, by = c("File", "julianday"))
 
 #make summary stats:
 
@@ -366,19 +283,36 @@ obs_seasonal_SD <- obs_clim %>%
             pH_seasonalSD = sd(pH_clim),
             DO_seasonalSD = sd(DO_clim))
 
+GFDLmod_seasonal_SD <- GFDLmod_clim %>%
+  group_by(File) %>%
+  summarise(T_seasonalSD = sd(T_clim),
+            pH_seasonalSD = sd(pH_clim),
+            DO_seasonalSD = sd(DO_clim))
+
+IPSLmod_seasonal_SD <- IPSLmod_clim %>%
+  group_by(File) %>%
+  summarise(T_seasonalSD = sd(T_clim),
+            pH_seasonalSD = sd(pH_clim),
+            DO_seasonalSD = sd(DO_clim))
+
+HADLEYmod_seasonal_SD <- HADLEYmod_clim %>%
+  group_by(File) %>%
+  summarise(T_seasonalSD = sd(T_clim),
+            pH_seasonalSD = sd(pH_clim),
+            DO_seasonalSD = sd(DO_clim))
 
 
-obs_calculate_sumstat <- function(obs, interp_all, seasonalSD){
+calculate_sumstat <- function(arg, interp_all, seasonalSD){
   
-  sumstat <- obs %>%
+  sumstat <- arg %>%
     
-    merge(interp_all, by = c("File", "julianday")) %>%
+    left_join(interp_all, by = c("File", "julianday"))  %>%
     
     #subtract actual values - interpolated climatology values 
     #filtered for only upwelling months!!
-    mutate(temp_deviation = obs_T - T_clim, #this should be for the given julian day, right?
-           pH_deviation = obs_pH - pH_clim,
-           DO_deviation = obs_DO - DO_clim) %>%
+    mutate(temp_deviation = T - T_clim, #this should be for the given julian day, right?
+           pH_deviation = pH - pH_clim,
+           DO_deviation = DO - DO_clim) %>%
     filter(Month %in% c(5,6,7,8,9)) %>%
     
     #find event/seasonal SD and other sum stats 
@@ -391,33 +325,172 @@ obs_calculate_sumstat <- function(obs, interp_all, seasonalSD){
            -pH_deviation, -DO_deviation) %>%
     
     #merge seasonal SD 
-    merge(seasonalSD, by = c("File")) %>%
+    left_join(seasonalSD, by = "File") %>%
     
     #adding other summary stats - mean, low 10th and upper 10th percentiles
     group_by(File) %>%
-    mutate(across(c(obs_T, obs_DO, obs_pH), 
-                  list(~ mean(.x, na.rm = TRUE), 
+    
+    mutate(across(c(T, DO, pH), 
+                  list(mean = ~ mean(.x, na.rm = TRUE),
                        low10 = ~ quantile(.x, 0.1, na.rm = TRUE),
-                       high10 = ~quantile(.x,0.9, na.rm = TRUE)))) %>%
+                       high10 = ~ quantile(.x, 0.9, na.rm = TRUE)))) %>%
     
     # to get to scale of one row per mpa
     distinct(File, .keep_all = TRUE) %>% ungroup() %>%
-    select(-julianday, -time_utc, -Year,-Month, -Day) 
+    select(-any_of(c("julianday", "Year","Month", "Day", "time_utc"))) 
   
   return(sumstat)
   }
 
 
 
-obs_sumstat <- obs_calculate_sumstat(obs_means, obs_interp_all, obs_seasonal_SD)
+obs_sumstat <- calculate_sumstat(obs, obs_interp_all, obs_seasonal_SD)
+GFDLsumstat <- calculate_sumstat(GFDL_mod, GFDLmod_interp_all, GFDLmod_seasonal_SD)
+IPSLsumstat <- calculate_sumstat(IPSL_mod, IPSLmod_interp_all, IPSLmod_seasonal_SD)
+HADLEYsumstat <- calculate_sumstat(HADLEY_mod, HADLEYmod_interp_all, HADLEYmod_seasonal_SD)
+
+#add model id 
+names(IPSLsumstat)[9:ncol(IPSLsumstat)] <- paste0("IPSL_", names(IPSLsumstat)[9:ncol(IPSLsumstat)])
+names(GFDLsumstat)[9:ncol(GFDLsumstat)] <- paste0("GFDL_", names(GFDLsumstat)[9:ncol(GFDLsumstat)])
+names(HADLEYsumstat)[9:ncol(HADLEYsumstat)] <- paste0("HADLEY_", names(HADLEYsumstat)[9:ncol(HADLEYsumstat)])
+
+ensemble_sumstat <- IPSLsumstat %>%
+  
+  left_join(GFDLsumstat, by = names(IPSLsumstat)[1:8]) %>%
+  left_join(HADLEYsumstat, by = names(IPSLsumstat)[1:8]) %>%
+  
+  rowwise() %>%
+  mutate(
+    T_mean = mean(c(IPSL_T_mean, GFDL_T_mean, HADLEY_T_mean), na.rm = TRUE),
+    T_low10 = mean(c(IPSL_T_low10, GFDL_T_low10, HADLEY_T_low10), na.rm = TRUE),
+    T_high10 = mean(c(IPSL_T_high10, GFDL_T_high10, HADLEY_T_high10), na.rm = TRUE),
+    T_eventSD = mean(c(IPSL_T_eventSD, GFDL_T_eventSD, HADLEY_T_eventSD), na.rm = TRUE),
+    T_seasonalSD = mean(c(IPSL_T_seasonalSD, GFDL_T_seasonalSD, HADLEY_T_seasonalSD), na.rm = TRUE),
+    
+    pH_mean = mean(c(IPSL_pH_mean, GFDL_pH_mean, HADLEY_pH_mean), na.rm = TRUE),
+    pH_low10 = mean(c(IPSL_pH_low10, GFDL_pH_low10, HADLEY_pH_low10), na.rm = TRUE),
+    pH_high10 = mean(c(IPSL_pH_high10, GFDL_pH_high10, HADLEY_pH_high10), na.rm = TRUE),
+    pH_eventSD = mean(c(IPSL_pH_eventSD, GFDL_pH_eventSD, HADLEY_pH_eventSD), na.rm = TRUE),
+    pH_seasonalSD = mean(c(IPSL_pH_seasonalSD, GFDL_pH_seasonalSD, HADLEY_pH_seasonalSD), na.rm = TRUE),
+    
+    DO_mean = mean(c(IPSL_DO_mean, GFDL_DO_mean, HADLEY_DO_mean), na.rm = TRUE),
+    DO_low10 = mean(c(IPSL_DO_low10, GFDL_DO_low10, HADLEY_DO_low10), na.rm = TRUE),
+    DO_high10 = mean(c(IPSL_DO_high10, GFDL_DO_high10, HADLEY_DO_high10), na.rm = TRUE),
+    DO_eventSD = mean(c(IPSL_DO_eventSD, GFDL_DO_eventSD, HADLEY_DO_eventSD), na.rm = TRUE),
+    DO_seasonalSD = mean(c(IPSL_DO_seasonalSD, GFDL_DO_seasonalSD, HADLEY_DO_seasonalSD), na.rm = TRUE)
+  ) %>%
+  ungroup() %>%
+  select(1:8, T_mean, T_low10, T_high10, T_eventSD, T_seasonalSD,
+         pH_mean, pH_low10, pH_high10, pH_eventSD, pH_seasonalSD,
+         DO_mean, DO_low10, DO_high10, DO_eventSD, DO_seasonalSD)
 
 
 
+ensemble_comparison <- obs_sumstat %>%
+  select(File, everything()) %>%
+  rename_with(~ paste0(.x, "_obs"), -File) %>%
+  inner_join(
+    ensemble_sumstat %>%
+      rename_with(~ paste0(.x, "_mod"), -File),
+    by = "File"
+  )
+
+# Summary statistics to compare
+stats <- c(
+  "T_mean",
+  "T_low10",
+  "T_high10",
+  "pH_mean",
+  "pH_low10",
+  "pH_high10",
+  "DO_mean",
+  "DO_low10",
+  "DO_high10",
+  "T_eventSD",
+  "pH_eventSD",
+  "DO_eventSD",
+  "T_seasonalSD",
+  "pH_seasonalSD",
+  "DO_seasonalSD"
+)
+
+# Run regression for each summary statistic
+regression_results <- map_dfr(stats, function(stat) {
+  
+  obs_col <- paste0(stat, "_obs")
+  mod_col <- paste0(stat, "_mod")
+  
+  dat <- ensemble_comparison %>%
+    select(File, all_of(obs_col), all_of(mod_col)) %>%
+    drop_na()
+  
+  model <- lm(
+    reformulate(obs_col, response = mod_col),
+    data = dat
+  )
+  
+  tidy(model) %>%
+    filter(term == obs_col) %>%
+    transmute(
+      statistic = stat,
+      n = nrow(dat),
+      slope = estimate,
+      slope_SE = std.error,
+      p_value = p.value,
+      R2 = summary(model)$r.squared
+    )
+})
+
+regression_results
+
+plot_data <- obs_sumstat %>%
+  select(File, all_of(stats)) %>%
+  rename_with(~ paste0(.x, "_obs"), -File) %>%
+  inner_join(
+    ensemble_sumstat %>%
+      select(File, all_of(stats)) %>%
+      rename_with(~ paste0(.x, "_mod"), -File),
+    by = "File"
+  ) %>%
+  pivot_longer(
+    cols = -File,
+    names_to = c("statistic", "type"),
+    names_pattern = "(.*)_(obs|mod)$",
+    values_to = "value"
+  ) %>%
+  pivot_wider(
+    names_from = type,
+    values_from = value
+  ) %>%
+  drop_na(obs, mod)
 
 
-
-
-
+ggplot(plot_data, aes(x = obs, y = mod)) +
+  
+  geom_abline(
+    slope = 1,
+    intercept = 0,
+    linetype = "dashed"
+  ) +
+  
+  geom_point() +
+  
+  geom_smooth(
+    method = "lm",
+    se = FALSE
+  ) +
+  
+  facet_wrap(
+    ~ statistic,
+    scales = "free"
+  ) +
+  
+  labs(
+    x = "Observed",
+    y = "Modeled"
+  ) +
+  
+  theme_classic()
 
 
 

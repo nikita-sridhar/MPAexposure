@@ -20,90 +20,10 @@ knitr::opts_chunk$set(warning = FALSE, message = FALSE)
 
 ## Setup
 
-Load required libraries, read IPSL MPA projections file, and assign MPAs to regions (Northern CA, Central CA, Southern CA, Channel Islands).
+\*Run ensemble_mean.R first (Load required libraries, read MPA projections file, calculate sum stats, find ensemble mean per summary stat
 
 ```{r}
-#| label: libraries
-#| message: false
-#| echo: false
-
-library(tidyverse)
-library(lubridate)
-library(data.table)
-library(factoextra)
-library(broom)
-library(cowplot)
-library(respR)
-library(here)
-library(lattice)
-library(RcppRoll)
-library(RColorBrewer)
-library(gplots)
-library(ggpmisc)
-library(dendextend)
-library(colourvalues)
-library(zoo)
-library(terra) #needed for tmap?
-library(tmap) 
-library(sf) 
-library(stringr)
-library(heatmaply)
-library(ggpubr)
-library(ggrepel)
-library(flextable)
-library(clipr)
-library(emmeans)
-```
-
-```{r}
-#| label: load_data
-#| message: false
-
-#Read mpa data, convert DO units, add a column for time period, and one for difference between mid/end cen and presentday.
-mpa <- read_csv(here("data/processeddata/model/IPSLmpa.csv")) %>%
-  mutate(DO_mmolL = DO_surf/1000,
-         DO_mgL = convert_DO(DO_mmolL, from = "mmol/L", to = "mg/L")) %>% 
-  filter(Year <= 2030|
-         Year >= 2035 & Year <= 2065|
-         Year >= 2070 & Year <= 2100) %>%
-  mutate(period = case_when((Year <= 2030) ~ "presentday", 
-                           (Year %in% c(2035:2065)) ~ "midcen",
-                           (Year %in% c(2070:2100)) ~ "endcen")) %>%
-  select(-T_bot, -DO_bot, -pH_bot,-DO_surf,-DO_mmolL) %>%
-  rename(Temp = T_surf,
-         DO = DO_mgL,
-         pH = pH_surf) %>%
-  mutate(Date = make_date(Year, Month, Day)) %>%
-  mutate(julianday = yday(Date))
-
-mpa$File <- substr(mpa$File, 1, nchar(mpa$File)-4)
-
-```
-
-```{r}
-#| label: regions
-#| message: false
-#add regions here!
-mpa_centroids<- read_csv(here("data/rawdata/MPA_polygons.csv")) %>%
-  select(-Area_sq_mi, -Type)
-mpa_centroids$File <- sub("^", "tphdo_mpa_", mpa_centroids$OBJECTID )
-
-mpa_centroids <- mpa_centroids %>%
-  mutate(region = ifelse(degy >= 37.29, "norca", 
-                         ifelse(degy > 34.8, "centralca", 
-                                ifelse("degy" < 34.274 & "degx" < -119.220, "channelisl" , 
-                                       "socal"))))
-
-channel <- c("Anacapa Island FMCA", "Anacapa Island FMR", "Anacapa Island SMCA", "Anacapa Island SMR", "Anacapa Island Special Closure", 
-             "Arrow Point to Lion Head Point SMCA", "Begg Rock SMR", "Blue Cavern Offshore SMCA", "Blue Cavern Onshore SMCA (No-Take)", 
-             "Carrington Point SMR", "Casino Point SMCA (No-Take)", "Cat Harbor SMCA", "Farnsworth Offshore SMCA", "Farnsworth Onshore SMCA", 
-             "Footprint FMR", "Footprint SMR", "Gull Island FMR", "Gull Island SMR", "Harris Point FMR", "Harris Point SMR", "Judith Rock SMR", 
-             "Long Point SMR", "Lover’s Cove SMCA", "Painted Cave SMCA", "Richardson Rock FMR", "Richardson Rock SMR", "San Miguel Island Special Closure", 
-             "Santa Barbara Island FMR", "Santa Barbara Island SMR", "Scorpion FMR", "Scorpion SMR", "Skunk Point SMR", "South Point FMR", "South Point SMR")
-
-mpa_centroids$region[mpa_centroids$NAME %in% channel]  <- "channel" 
-mpa <- merge(mpa, mpa_centroids,  by = "File")
-
+source(here::here("./scripts/ensemble_mean.R"))
 ```
 
 #### Map showing regions:
@@ -183,272 +103,116 @@ socal <- make_map(c(-121, 32.5, -117, 34.5), "Southern CA & Ch. Isl",TRUE)
 tmap_arrange(socal,centralca,norcal,nrow = 1)
 ```
 
-## Calculate climatology
-
-Create a climatology (for each MPA within a time period, Jan values averaged over all years - same for each month), so each MPA has one value per month that is averaged over all of the years. Seasonal SD is calculated later in summary stat section, and is the variation across these 12 climatologies for each MPA, representing the seasonal cycle.
-
-```{r}
-#| label: climatology
-#| message: false
-
-#calculate climatology for each MPA for each time period
-mpa_climatology <- mpa %>%
-  group_by(File, Month, period) %>%
-    summarise(T_clim = mean(Temp), 
-              pH_clim = mean(pH), 
-              DO_clim =   mean(DO))
-
-```
-
-## Calculate event-based variation
-
-To understand event-based variation (not attributed to the seasonal cycle), we need to find the deviation of actual daily values from a climatological value. To do so, a mock dataset with julian day climatologies is created by interpolating monthly climatology values. Actual daily values are subtracted from this interpolated dataset at the daily scale. The standard deviation of this difference is the event-based SD, which is calculated in the summary stat section.
-
-*Q: instead of interpolating from monthly climatologies to create daily climatologies, why not average daily values to get daily climatologies?*
-
-```{r}
-#| label: inter_setup
-#| message: false
-#| warning: false
-
-#' Setup for interpolation:
-#' Need to create a day 1 and day 365 proxy. The approx function can only interpolate not extrapolate. The approx function is used to interpolate between the 15th day of each month, and day 1 and day 365 are used to interpolate the first 15 and last 15 days of the year.
-
-
-##below creates empty vectors as big as we need (365 days per mpa) for each variable and each mpa. julianday is dates 1-365 as many mpa times
-
-mpaslist = unique(mpa$File) 
-mpas = rep(NA, 365*121)
-julianday = rep(1:365, 121)
-interp = rep(NA, 365*121)
-
-#Set up a vector of julian day assignment for the 15th of each month and the first and last day of the year
-x_in <- yday(as.Date(c("2001-01-01", 
-                       "2001-01-15","2001-02-15","2001-03-15","2001-04-15",
-                       "2001-05-15","2001-06-15","2001-07-15","2001-08-15",
-                       "2001-09-15","2001-10-15","2001-11-15","2001-12-15", 
-                       "2001-12-31")))
-
-# creating a list of all the days of the year to interpolate to.
-x_out <- (1:365) 
-
-```
-
-```{r}
-#| label: interpolation
-
-interpolate <- function(periodt, variable){
-  
-  mpa_period_climatology <- mpa_climatology %>%
-    filter(period == periodt)
-  
-  for (i in 1:length(mpaslist)){ #for each mpa
-    
-    d <- mpa_period_climatology %>% #for given mpa iterating through, selects var from clim
-      filter(File == mpaslist[i]) %>% 
-      select(File,Month, !!sym(variable))
-    
-#use a weighted average. for dec 31, slightly more than half weight to dec (denoted by [12,3] index - 12 is the month, third column is the variable's clim value), little less than   half weight to jan. for jan 1, slightly more weight to jan, little less weight to dec. 
-    Dec31 = as.numeric(( ((16/30) * (d[12,3])) +  
-                           ((14/30) * d[1,3]) )) 
-    Jan1 = as.numeric(( ((14/30) * (d[12,3])) + 
-                          ((16/30) * d[1,3]) ))
-
-    y_in <- c(Jan1, d[[variable]], Dec31)
-    
-    mod <- approx(x = x_in, #days to interpolate from
-                 y = y_in, #temp values per day in x_in
-                 xout = x_out) #1-365 days to interpolate out to
-    
-    #I don't understand this part
-    mpas[((i-1)*365+1):(i*365)] <- mpaslist[i] #rep(mpaslist[1], 365)
-    interp[((i-1)*365+1):(i*365)] <- mod$y
-  }
-  
-  df <- data.frame(mpas, julianday, interp) %>%
-    rename(File = mpas) %>%
-    mutate(period = periodt) %>%
-    rename(!!sym(variable) := interp)
-  
-  assign(x = paste("interp",variable,periodt, sep="_"), value = df, envir = globalenv())
-  
-}
-```
-
-```{r}
-#| label: interpolation_function_call
-
-
-interpolate("presentday", "T_clim")
-interpolate("midcen", "T_clim")
-interpolate("endcen", "T_clim")
-
-interpolate("presentday", "pH_clim")
-interpolate("midcen", "pH_clim")
-interpolate("endcen", "pH_clim")
-
-interpolate("presentday", "DO_clim")
-interpolate("midcen", "DO_clim")
-interpolate("endcen", "DO_clim")
-```
-
-```{r}
-#| label: combine_interp_dataframes
-
-interpolated_temp <- rbind(interp_T_clim_presentday,
-                           interp_T_clim_midcen,
-                           interp_T_clim_endcen)
-
-interpolated_pH <- rbind(interp_pH_clim_presentday,
-                           interp_pH_clim_midcen,
-                           interp_pH_clim_endcen)
-
-interpolated_DO <- rbind(interp_DO_clim_presentday,
-                           interp_DO_clim_midcen,
-                           interp_DO_clim_endcen)
-```
-
-## Create summary statistics
-
-Generate summary statistics for T, pH, and DO.
-
-*Seasonal SD* is across climatologies (monthly values averaged over all years resulting in 12 values per MPA - one per month - **the seasonal SD captures the seasonal cycle,** and is the variation across these values).
-
-*Event SD* is calculated based on the deviation of daily values from interpolated daily values. The standard deviation per MPA is across all of the daily differences between daily value and interpolated values filtered for upwelling months May, June, July, August, and September (*filtered*, not *grouped by* upwelling month - the **Event SD captures variation of the deviations at a daily scale**).
-
-Additional summary stats include the mean, lower 10th percentile, and upper 10th percentile.
-
-```{r}
-#| label: summary_stats
-#| warning: false
-
-#calculate seasonal SD 
-seasonal_SD <- mpa_climatology %>%
-  group_by(File, period) %>%
-  summarise(T_seasonalSD = sd(T_clim),
-            pH_seasonalSD = sd(pH_clim),
-            DO_seasonalSD = sd(DO_clim))
-
-#put all summary stats together - first, calculate event SD
-sum <- mpa %>%
- 
-  #merge interpolated climatologies to mpa. (used to calculate event sd)
-  merge(interpolated_temp, by = c("File", "julianday", "period")) %>%
-  merge(interpolated_pH, by = c("File", "julianday", "period")) %>%
-  merge(interpolated_DO, by = c("File", "julianday", "period")) %>%
-  
-  #subtract actual values - interpolated climatology values 
-  #filtered for only upwelling months!!
-  mutate(temp_deviation = Temp - T_clim,
-         pH_deviation = pH - pH_clim,
-         DO_deviation = DO - DO_clim) %>%
-  filter(Month == c(5,6,7,8,9)) %>%
-  
-  #find event based SD 
-  group_by(File, period) %>%
-    mutate(T_eventSD = sd(temp_deviation),
-            pH_eventSD = sd(pH_deviation),
-            DO_eventSD = sd(DO_deviation)) %>%
-  ungroup() %>%
-    select(-T_clim, -pH_clim, -DO_clim, -temp_deviation,
-         -pH_deviation, -DO_deviation) %>%
-  
-    #merge seasonal SD 
-    merge(seasonal_SD, by = c("File", "period")) %>%
-  
-    #adding other summary stats - mean, low 10th and upper 10th percentiles
-    group_by(File, period) %>%
-    mutate(across(c(Temp, DO, pH), 
-                   list(mean = mean, 
-                        low10 = ~ quantile(.x, 0.1),
-                        high10 = ~quantile(.x,0.9)))) %>%
-  
-  # to get to scale of one row per mpa
-  select(-...1, -Temp, -pH, -DO, -julianday, -Year, -Month, -Day, -Date) %>%
-  distinct(File, .keep_all = TRUE) %>% ungroup()
-
-```
-
 ## PCA
 
 PCA of all summary stats (mean, lower 10th percentile, upper 10th percentile, seasonal SD, event SD) clustered by regions within specified time period.
 
 ```{r}
-# Remove metadata
-sumsub <- sum %>%
-  select(-OBJECTID, -NAME, -File, -SHORTNAME,
+make_pca <- function(mod_sumstat){
+  
+  model_name <- sub("sumstat.*", "", deparse(substitute(mod_sumstat)))
+  
+  sumstat_4pca <- mod_sumstat %>%
+    select(-OBJECTID, -NAME, -File, -SHORTNAME,
          -degx, -degy, -region, -period)
 
-# PCA on all observations
-pca_all <- prcomp(sumsub, scale. = TRUE)
+  # PCA on all observations
+  pca <- prcomp(sumstat_4pca, scale. = TRUE)
 
-#varimax rotation
-n_comp <- 2
-raw_loadings <- pca_all$rotation[, 1:n_comp]
-varimax_res  <- varimax(raw_loadings)
-pca_all$rotation[, 1:n_comp] <- varimax_res$loadings
-scaled_data <- scale(sumsub)
-pca_all$x[, 1:n_comp] <- scaled_data %*% varimax_res$loadings
+  #varimax rotation
+  n_comp <- 2
+  raw_loadings <- pca$rotation[, 1:n_comp]
+  varimax_res  <- varimax(raw_loadings)
+  
+  pca$rotation[, 1:n_comp] <- varimax_res$loadings
+  
+  scaled_data <- scale(sumstat_4pca)
+  pca$x[, 1:n_comp] <- scaled_data %*% varimax_res$loadings
+  
+  pca$rotation[,1:2] <- -pca$rotation[,1:2]
+  pca$x[,1:2] <- -pca$x[,1:2]
+  
+  #Keep first 3 PCs and add metada
+  scores <- as.data.frame(pca$x[,1:3])
+  scores$MPA <- mod_sumstat$NAME
+  scores$MPA_num <- mod_sumstat$OBJECTID
+  scores$region <- mod_sumstat$region
+  scores$period <- factor(mod_sumstat$period, levels = c("presentday","midcen","endcen"))
+  
+  
+  # A. Base plot: eigenvectors only
+  pca_eigenvectors <- fviz_pca_biplot(
+    pca, axes = c(1,2), repel = TRUE, col.var = "black",
+    addEllipses = FALSE, invisible = "ind"
+  ) +
+    labs(title = paste0(model_name, " PCA Eigenvectors"))
 
-#Keep first 3 PCs
-scores <- as.data.frame(pca_all$x[,1:3])
+  
+  # B. Eigenvectors + present-day points
+  plot_presentday <- pca_eigenvectors +
+    geom_point(
+      data = scores %>% filter(period == "presentday"),
+      aes(PC1, PC2, color = region),
+      size = 2, alpha = 0.7,
+      inherit.aes = FALSE
+    ) +
+    scale_color_manual(
+      values = region_cols,
+      breaks = c("socal", "channel", "centralca","norca")
+    ) +
+    labs(title = paste0(model_name, " PCA - Present Day"))
+  
+  # C. Eigenvectors + present-day and end-century points
+  plot_endcen <- pca_eigenvectors +
+    geom_point(
+      data = scores %>% 
+        filter(period %in% c("presentday", "endcen")),
+      aes(PC1, PC2, color = region, shape = period),
+      size = 2, alpha = 0.7,
+      inherit.aes = FALSE
+    ) +
+    scale_color_manual(
+      values = region_cols,
+      breaks = c("norca", "centralca", "socal", "channel")
+    ) +
+    scale_shape_manual(
+      values = c(presentday = 16, endcen = 15)
+    ) +
+    labs(title = paste0(model_name, " PCA - Present Day and End Century"))
+  
 
-#Add metadata back
-scores$MPA <- sum$NAME
-scores$MPA_num <- sum$OBJECTID
-scores$region <- sum$region
-scores$period <- sum$period
+  return(list(pca = pca, scores = scores, eigenvectors = pca_eigenvectors, presentday = plot_presentday, endcen = plot_endcen))
 
-scores$period <- factor(scores$period,levels = c("presentday","midcen","endcen"))
+}
 ```
 
-Plotting results
+### Plot PCAs
+
+```{r}
+IPSLpca <- make_pca(IPSLsumstat)
+GFDLpca <- make_pca(GFDLsumstat)
+HADLEYpca <- make_pca(HADLEYsumstat)
+
+IPSLpca$plot + theme(legend.position = "none") +
+GFDLpca$plot + theme(legend.position = "none") +
+HADLEYpca$plot
+
+
+ensemble_pca <- make_pca(ensemble_sumstat)
+
+ensemble_pca$eigenvectors 
+ensemble_pca$presentday
+ensemble_pca$endcen
+```
+
+### Find diff in PC over time
 
 ```{r}
 
-#pca biplot
-p <- fviz_pca_biplot(
-  pca_all,
-  axes = c(1,2), #plots varimax rotated
-  repel = TRUE,
-  col.var = "black",
-  label = "var",
-  labelsize = 4,
-  addEllipses = FALSE,
-  invisible = "ind"
-) 
-
-
-p +
-  
-  geom_point(
-    data = scores, 
-    aes(PC1, PC2,
-        color = region,
-        shape = period),
-    size = 2,
-    alpha = 0.7,
-    inherit.aes = FALSE
-  ) + 
-  
-  scale_color_manual(values = region_cols) +
-  scale_shape_manual(values = c(presentday = 16,
-                                midcen = 17,
-                                endcen = 15)) +
-    
-  
-  labs(title = "All Period MPAs")
-```
-
-Change over PCs
-
-```{r}
-#saving factor scores from pca of whole dataset (above chunk) and only select PC1 (most explanatory)
-#i think this si same as scores but doube check
-factors <- as.data.frame(pca_all$x) %>%
+scores_wide <- ensemble_pca$scores %>%
   select("PC1","PC2") %>%
-#I think the rows correspond to each individual mpa for a certain time period, corresponds to sum, need to merge this and only select pc1 since its most explanatory (but need to confirm this)
-  cbind(sum) %>%
+#I think the rows correspond to each individual mpa for a certain time period, corresponds to sumstat file, need to merge this and only select pc1 since its most explanatory 
+  cbind(ensemble_sumstat) %>%
 #convert from long to wide (for period) 
   pivot_wider(id_cols = c("File","region","SHORTNAME"),
               names_from = "period",
@@ -456,71 +220,51 @@ factors <- as.data.frame(pca_all$x) %>%
 
 
 #mpa PC changes:
-mpa_change <- factors %>%
+mpa_change <- scores_wide %>%
   
-  mutate("PC1_presentday_midcen_change" = PC1_midcen - PC1_presentday,
-         "PC1_presentday_endcen_change" = PC1_endcen - PC1_presentday,
-         "PC2_presentday_midcen_change" = PC2_midcen - PC2_presentday,
-         "PC2_presentday_endcen_change" = PC2_endcen - PC2_presentday) %>%
+  mutate("PC1" = PC1_endcen - PC1_presentday,
+         "PC2" = PC2_endcen - PC2_presentday) %>%
   
-  pivot_longer(cols = 10:13, 
-               names_to = "Trajectory", 
+  pivot_longer(cols = c("PC1","PC2"), 
+               names_to = "PC", 
                values_to = "PC_diff") %>%
   
   select(-PC1_endcen,-PC1_presentday,-PC1_midcen,-PC2_endcen,-PC2_presentday,-PC2_midcen) %>%
   
-  mutate(PC = substr(Trajectory,1,3), .after = Trajectory,
-         Period = str_match(Trajectory, "^[^_]*_(.*)_[^_]*$")[, 2],
-         Period = sub("_", " \u2192 ",Period),
-         Period = factor(Period, levels = c("presentday → midcen","presentday → endcen")),
-         region = factor(region, levels = c("socal", "channel", "centralca", "norca"))) 
-
-#averaged over all MPAs---------------
-mpa_change_summary <- mpa_change  %>%
-  group_by(Period, PC) %>%
-  summarise("Mean change in PC value" = mean(PC_diff),
-            "SD of change in PC value" = sd(PC_diff)) %>%
-
-arrange(PC)
-
-#table
-flextable(mpa_change_summary) %>% 
-  autofit()
+  mutate(region = factor(region, 
+                         levels = c("socal", "channel", "centralca",
+                                    "norca"))) 
 
 
 #averaged across regions: -------------------------
 region_mpa_change_summary <- mpa_change %>%
-  group_by(Period, PC, region) %>%
-  summarise(mean_pc_change = mean(PC_diff),
+  group_by(PC, region) %>%
+  summarise(mean_pc_change = mean(PC_diff, na.rm=TRUE),
             sd_pc_change = sd(PC_diff)) %>%
 
-arrange(PC, region) %>%
-  
-  #opacity for graph
-  mutate(opacity = ifelse(Period == "presentday → midcen", 0.4, 1),
-         region = factor(region, levels = c("socal","channel","centralca","norca")))
+arrange(PC, region)
 
 
 #contrasts -------------------------------------
-pc_change_mod <- lm(PC_diff ~ Period*PC*region, data = mpa_change)
+pc_change_mod <- lm(PC_diff ~ PC*region, data = mpa_change)
 summary(pc_change_mod)
 anova(pc_change_mod)
 
-EMM <- emmeans(pc_change_mod, ~ Period*PC*region)
+EMM <- emmeans(pc_change_mod, ~ PC*region)
 
 
-pc_contrast <- contrast(EMM, method = "pairwise", by = c("Period","region")) %>% 
+pc_contrast <- contrast(EMM, method = "pairwise", by = "region") %>% 
   as.data.frame() %>%
   mutate(p.value = ifelse(p.value < 0.01, "< 0.01", p.value),
          across(c(estimate, SE, df, t.ratio),~ round(.x, 3)))
 
 flextable(pc_contrast) %>% 
-  set_caption("PC1 vs. PC2 contrasts within each region and period") %>%
+  set_caption("PC1 vs. PC2 contrasts within each region") %>%
   autofit()
 
 
 
-region_contrast <- contrast(EMM, method = "pairwise", by = c("Period","PC")) %>% 
+region_contrast <- contrast(EMM, method = "pairwise", by = "PC") %>% 
   as.data.frame() %>%
    mutate(p.value = ifelse(p.value < 0.01, "< 0.01", 
                            round(p.value,3)),
@@ -530,117 +274,114 @@ flextable(region_contrast) %>%
   bold(i = ~ p.value < 0.01,
         j = "p.value",
     bold = TRUE) %>% 
-  set_caption("Regional contrasts within each PC and period") %>%
+  set_caption("Regional contrasts within each PC") %>%
   
   autofit()
 
-
-
-period_contrast <- contrast(EMM, method = "pairwise", by = c("PC","region")) %>% 
-  as.data.frame() %>%
-    mutate(p.value = ifelse(p.value < 0.01, "< 0.01", p.value),
-         across(c(estimate, SE, df, t.ratio),~ round(.x, 3)))
-
-flextable(period_contrast) %>% 
-  set_caption("midcen vs. endcen contrasts within each PC and region") %>%
-  autofit()
 
 
 #based on the region contrast table
 sig_letters <- data.frame(
-  PC = c(
-    rep("PC1", 8),
-    rep("PC2", 8)
-  ),
-  Period = rep(
-    c(
-      "presentday → midcen",
-      "presentday → endcen"
-    ),
-    each = 4,
-    times = 2
-  ),
-  region = rep(
-    c("socal", "channel", "centralca", "norca"),
-    times = 4
-  ),
-  letter = c(
-    "a", "a", "a", "b",
-    "a", "b", "c", "d",
-    "a", "b", "a", "c",
-    "a", "b", "a", "c"
+  region = c("socal", "channel", "centralca", "norca"),
+  PC1 = c("a", "a", "b", "b"),
+  PC2 = c("a", "a", "b", "b")
+) %>%
+  pivot_longer(
+    cols = c(PC1, PC2),
+    names_to = "PC",
+    values_to = "sig"
   )
-)
+
 
 plot_data <- region_mpa_change_summary %>%
-  left_join(
-    sig_letters,
-    by = c("PC", "Period", "region")
-  ) %>%
-  mutate(
-    Period = factor(
-      Period,
-      levels = c(
-        "presentday → midcen",
-        "presentday → endcen"
-      )
-    )
-  )
+  left_join(sig_letters,
+    by = c("PC", "region")) 
   
 
 #graph of mean change in pc per region ---------------------------------
-ggplot(region_mpa_change_summary, aes(x = region, y = mean_pc_change, 
-                                      fill = region, alpha = opacity, group = interaction(region, Period))) +
-  geom_col(position = position_dodge(width = 0.9)) +
-  geom_errorbar(aes(ymin = mean_pc_change - sd_pc_change,
-                    ymax = mean_pc_change + sd_pc_change),
-                position = position_dodge(width = 0.9),
-                width = 0.2,
-                color = "#708090") +
-  scale_fill_manual(values = region_cols) +
-  scale_alpha_identity(name = "Period",
-                       labels = c("presentday → midcen","presentday → endcen"),
-                       breaks = c(0.4,1),
-                       guide = "legend") +
-  #signif letters
+ggplot(region_mpa_change_summary,
+       aes(x = region, y = mean_pc_change, fill = region)) +
+
+  geom_hline(yintercept = 0, color = "gray60", linewidth = 0.4) +
+
+  geom_col(width = 0.65) +
+
+  geom_errorbar(
+    aes(ymin = mean_pc_change - sd_pc_change,
+        ymax = mean_pc_change + sd_pc_change),
+    width = 0.15,
+    linewidth = 0.6,
+    color = "#708090"
+  ) +
+
   geom_text(
     data = plot_data,
     aes(
       x = region,
-      y = mean_pc_change + sd_pc_change + 0.08,
-      label = letter,
-      group = Period
+      y = mean_pc_change + sd_pc_change +
+        0.05 * diff(range(region_mpa_change_summary$mean_pc_change)),
+      label = sig
     ),
-    position = position_dodge(width=0.9),
     fontface = "bold",
     size = 5
   ) +
-  facet_wrap(~PC, scales = "free")+
-  theme_bw() +
-  labs(
-    caption = "Different letters indicate significant differences among regions within each period (p < 0.01). Comparisons were not made between periods."
-  )
 
-  
+  scale_fill_manual(values = region_cols) +
+
+  scale_x_discrete(
+    labels = c(
+      socal = "Southern CA",
+      channel = "Channel Islands",
+      centralca = "Central CA",
+      norca = "Northern CA"
+    ),
+    expand = expansion(add = 0.5)
+  ) +
+
+  facet_wrap(~PC, scales = "free_y") +
+
+  labs(
+    x = NULL,
+    y = "Change in PC score\n(End century − Present day)",
+    fill = "Region"
+  ) +
+
+  theme_bw(base_size = 12) +
+  theme(
+    legend.position = "none",
+    strip.background = element_rect(fill = "gray90", color = NA),
+    strip.text = element_text(face = "bold", size = 12),
+    axis.text.x = element_text(
+      angle = 30,
+      hjust = 1,
+      vjust = 1,
+      color = "black"
+    ),
+    axis.text.y = element_text(color = "black"),
+    axis.title.y = element_text(face = "bold"),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.spacing = unit(1.5, "lines"),
+    plot.margin = margin(10, 15, 15, 10)
+  ) +
+
+  coord_cartesian(clip = "off")
+
 ```
 
-## Residual analysis
+### Residual analysis
 
 ```{r}
-#running lm model of presentday vs. midcen and presentday vs. endcen
-PC1_presentday_midcen_mod <- lm(PC1_midcen ~ PC1_presentday, data = factors)
-PC1_presentday_endcen_mod <- lm(PC1_endcen ~ PC1_presentday, data = factors)
+#running lm model of presentday vs. endcen
+PC1_mod <- lm(PC1_endcen ~ PC1_presentday, data = scores_wide)
+PC2_mod <- lm(PC2_endcen ~ PC2_presentday, data = scores_wide)
 
-PC2_presentday_midcen_mod <- lm(PC2_midcen ~ PC2_presentday, data = factors)
-PC2_presentday_endcen_mod <- lm(PC2_endcen ~ PC2_presentday, data = factors)
 
 #saving residuals
-pc_residuals <- factors %>% 
+pc_residuals <- scores_wide %>% 
   
-  mutate(PC1_presentday_midcen = residuals(PC1_presentday_midcen_mod),
-         PC1_presentday_endcen = residuals(PC1_presentday_endcen_mod),
-         PC2_presentday_midcen = residuals(PC2_presentday_midcen_mod),
-         PC2_presentday_endcen = residuals(PC2_presentday_endcen_mod)) %>%
+  mutate(PC1_residual = residuals(PC1_mod),
+         PC2_residual = residuals(PC2_mod)) %>%
  
   select(-c(4:9)) %>%
   
@@ -650,48 +391,39 @@ pc_residuals <- factors %>%
                values_to = "residual") %>%
   
   #adding id columns
-  mutate(PC = substr(descriptor,1,3), .after = descriptor,
-         Period = sub("^[^_]*_", "", descriptor),
-         Period = sub("_", " \u2192 ", Period)) %>%
+  mutate(PC = substr(descriptor,1,3), .after = descriptor) %>%
   
   select(-descriptor) %>%
 
   #finding regional means and sd
-  group_by(region, PC, Period) %>%
+  group_by(region, PC) %>%
   
   mutate(region_mean = mean(residual, na.rm = TRUE),
          region_sd = sd(residual, na.rm = TRUE),
          dist_from_mean = abs(residual - region_mean),
-         label = ifelse(dist_from_mean >= quantile(dist_from_mean, 0.95, na.rm = TRUE),
-                                                   SHORTNAME, NA)) %>%
-
-  #opacity for graph
-  mutate(opacity = ifelse(Period == "presentday → midcen", 0.4, 1),
-         region = factor(region, levels = c("socal","channel","centralca","norca")),
-         Period = factor(Period, levels = c("presentday → midcen", "presentday → endcen")))
+         label = ifelse(dist_from_mean >= quantile(dist_from_mean, 0.9, na.rm = TRUE),
+                                                   SHORTNAME, NA),
+         region = factor(region, 
+                         levels = c("socal", "channel", "centralca",
+                                    "norca"))) 
 
 #summary for bar chart
 region_pc_residuals <- pc_residuals %>%
-  distinct(region, PC, Period, region_mean, region_sd, opacity)  %>%
+  distinct(region, PC, region_mean, region_sd)  %>%
   arrange(PC, region) 
 
 #CONTRASTS
-residual_mod <- lm(region_mean ~ Period*PC*region, data = pc_residuals)
+residual_mod <- lm(
+  residual ~ PC * region,
+  data = pc_residuals
+)
 
-EMM_residual <- emmeans(residual_mod, ~ Period*PC*region)
-
-residual_contrast <- contrast(EMM_residual, method = "pairwise", by = c("Period","region")) %>% 
-  as.data.frame() %>%
-  mutate(p.value = ifelse(p.value < 0.01, "< 0.01", p.value),
-         across(c(estimate, SE, df, t.ratio),~ round(.x, 3)))
-
-flextable(residual_contrast) %>% 
-  set_caption("PC1 vs. PC2 contrasts within each region and period") %>%
-  autofit()
+EMM_residual <- emmeans(residual_mod, ~ PC*region)
 
 
 
-region_contrast <- contrast(EMM_residual, method = "pairwise", by = c("Period","PC")) %>% 
+
+region_contrast <- contrast(EMM_residual, method = "pairwise", by = "PC") %>% 
   as.data.frame() %>%
    mutate(p.value = ifelse(p.value < 0.01, "< 0.01", 
                            round(p.value,3)),
@@ -719,35 +451,77 @@ flextable(period_contrast) %>%
 
 
 #plot residuals and mean region residual for pc1 and pc2
-ggplot(pc_residuals, aes(x = region, y = region_mean, 
-                         fill = region, alpha = opacity,  
-                         group = interaction(region, Period))) +
-  #regional pc residual mean 
-  geom_col(stat = "mean", position = position_dodge(width = 0.9)) +
-  #actual residual per mpa
-  geom_point(aes(y = residual, color = region, group = Period), 
-             position = position_jitterdodge(dodge.width = 0.9)) +
-  #label mpa top .95 percentile residual
-  geom_text_repel(aes(y = residual, color = region, group = Period, 
-                      label = label), size = 3) +
-  #error bar sd
-  geom_errorbar(aes(ymin = region_mean - region_sd,
-                    ymax = region_mean + region_sd),
-                position = position_dodge(width = 0.9),
-                width = 0.2,
-                color = "#8B9397",
-                alpha = 0.5) +
-  
-  scale_fill_manual(values = region_cols) +
+ggplot(pc_residuals, aes(x = region, y = residual)) +
+
+  # Individual MPA residuals
+  geom_point(
+    aes(color = region),
+    position = position_jitter(width = 0.12, height = 0),
+    alpha = 0.45,
+    size = 2
+  ) +
+
+  # Regional mean and SD
+  geom_errorbar(
+    data = region_pc_residuals,
+    aes(
+      x = region,
+      ymin = region_mean - region_sd,
+      ymax = region_mean + region_sd
+    ),
+    width = 0.15,
+    linewidth = 0.7,
+    color = "black",
+    inherit.aes = FALSE
+  ) +
+
+  geom_point(
+    data = region_pc_residuals,
+    aes(x = region, y = region_mean),
+    shape = 23,
+    size = 3.5,
+    fill = "white",
+    color = "black",
+    inherit.aes = FALSE
+  ) +
+
+  geom_text_repel(
+    aes(label = label, color = region),
+    size = 3,
+    show.legend = FALSE,
+    max.overlaps = Inf
+  ) +
+
+  geom_hline(yintercept = 0, linetype = "dashed",
+             color = "gray50") +
+
   scale_color_manual(values = region_cols) +
-  
-  scale_alpha_identity(name = "Period",
-                       labels = c("presentday → midcen" ,"presentday → endcen"),
-                       breaks = c(0.4,1),
-                       guide = "legend") +
-  facet_wrap(~PC, scales = "free")+
-  labs(y = "PC eigenvalue model residual") +
-  theme_bw()
+
+  scale_x_discrete(
+    labels = c(
+      socal = "Southern CA",
+      channel = "Channel Islands",
+      centralca = "Central CA",
+      norca = "Northern CA"
+    )
+  ) +
+
+  facet_wrap(~PC, scales = "free_y") +
+
+  labs(
+    x = NULL,
+    y = "PC score residual (End century vs. present-day prediction)"
+  ) +
+
+  theme_bw(base_size = 12) +
+  theme(
+    legend.position = "none",
+    strip.background = element_rect(fill = "gray90"),
+    strip.text = element_text(face = "bold"),
+    axis.text.x = element_text(angle = 30, hjust = 1),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_blank()
+  )
 
 ```
 
