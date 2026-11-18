@@ -55,6 +55,10 @@ mpa_centroids<- read_csv(here("data/rawdata/MPA_polygons.csv")) %>%
                          ifelse(degy > 34.8, "centralca",
                                 ifelse(NAME %in% channel, "channel",
                                 "socal"))))
+
+region_cols <- c("norca" = "#8da0cb","centralca" = "#fc8d62", 
+                 "channel" = "#66c2a5","socal" = "#e78ac3")
+
 #clean mpa files ---------------------------------------------------------------
 clean_mpa <- function(mod){
   mod <- mod %>%
@@ -306,11 +310,7 @@ ensemble_sumstat <- IPSLsumstat %>%
          DO_mean, DO_low10, DO_high10, DO_eventSD, DO_seasonalSD)
 
 
-region_cols <- c("norca" = "#8da0cb","centralca" = "#fc8d62", 
-                 "channel" = "#66c2a5","socal" = "#e78ac3")
 
-
-#compare PCA ------------------------------------------------------------
 
 
 

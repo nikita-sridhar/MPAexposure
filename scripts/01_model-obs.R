@@ -50,7 +50,7 @@ load_mod <- function(mod_run){
   return(mod_df)
   }
 
-HADLEY_mod <- load_mod("HADLEY")
+GFDL_mod <- load_mod("GFDL")
 IPSL_mod <- load_mod("IPSL")
 HADLEY_mod <- load_mod("HADL")
 
@@ -111,7 +111,7 @@ obs_clim <- obs %>%
 
 
 
-HADLEYmod_clim <- HADLEY_mod %>%
+GFDLmod_clim <- GFDL_mod %>%
   group_by(File, Month) %>%
   summarise(T_clim = mean(T, na.rm = TRUE), 
             pH_clim = mean(pH, na.rm = TRUE), 
@@ -244,9 +244,9 @@ obs_pH_interp <- interpolate(obs_clim, "pH_clim")
 obs_DO_interp <- interpolate(obs_clim, "DO_clim")
 
 
-HADLEYmod_temp_interp <- interpolate(HADLEYmod_clim, "T_clim")
-HADLEYmod_pH_interp <- interpolate(HADLEYmod_clim, "pH_clim")
-HADLEYmod_DO_interp <- interpolate(HADLEYmod_clim, "DO_clim")
+GFDLmod_temp_interp <- interpolate(GFDLmod_clim, "T_clim")
+GFDLmod_pH_interp <- interpolate(GFDLmod_clim, "pH_clim")
+GFDLmod_DO_interp <- interpolate(GFDLmod_clim, "DO_clim")
 
 IPSLmod_temp_interp <- interpolate(IPSLmod_clim, "T_clim")
 IPSLmod_pH_interp <- interpolate(IPSLmod_clim, "pH_clim")
@@ -262,9 +262,9 @@ obs_interp_all <- obs_temp_interp %>%
   left_join(obs_pH_interp, by = c("File", "julianday")) %>%
   left_join(obs_DO_interp, by = c("File", "julianday"))
 
-HADLEYmod_interp_all <- HADLEYmod_temp_interp %>%
-  left_join(HADLEYmod_pH_interp, by = c("File", "julianday")) %>%
-  left_join(HADLEYmod_DO_interp, by = c("File", "julianday"))
+GFDLmod_interp_all <- GFDLmod_temp_interp %>%
+  left_join(GFDLmod_pH_interp, by = c("File", "julianday")) %>%
+  left_join(GFDLmod_DO_interp, by = c("File", "julianday"))
 
 IPSLmod_interp_all <- IPSLmod_temp_interp %>%
   left_join(IPSLmod_pH_interp, by = c("File", "julianday")) %>%
@@ -273,8 +273,6 @@ IPSLmod_interp_all <- IPSLmod_temp_interp %>%
 HADLEYmod_interp_all <- HADLEYmod_temp_interp %>%
   left_join(HADLEYmod_pH_interp, by = c("File", "julianday")) %>%
   left_join(HADLEYmod_DO_interp, by = c("File", "julianday"))
-
-#make summary stats:
 
 #calculate seasonal SD
 obs_seasonal_SD <- obs_clim %>%
@@ -301,7 +299,7 @@ HADLEYmod_seasonal_SD <- HADLEYmod_clim %>%
             pH_seasonalSD = sd(pH_clim),
             DO_seasonalSD = sd(DO_clim))
 
-
+#make summary stats:
 calculate_sumstat <- function(arg, interp_all, seasonalSD){
   
   sumstat <- arg %>%
@@ -341,8 +339,6 @@ calculate_sumstat <- function(arg, interp_all, seasonalSD){
   
   return(sumstat)
   }
-
-
 
 obs_sumstat <- calculate_sumstat(obs, obs_interp_all, obs_seasonal_SD)
 GFDLsumstat <- calculate_sumstat(GFDL_mod, GFDLmod_interp_all, GFDLmod_seasonal_SD)
@@ -384,16 +380,24 @@ ensemble_sumstat <- IPSLsumstat %>%
          pH_mean, pH_low10, pH_high10, pH_eventSD, pH_seasonalSD,
          DO_mean, DO_low10, DO_high10, DO_eventSD, DO_seasonalSD)
 
+names(ensemble_sumstat)[9:ncol(ensemble_sumstat)] <- paste0("ensemble_", names(ensemble_sumstat)[9:ncol(ensemble_sumstat)])
 
+# compare mod and obs sumstat ---------------------------------------------
 
-ensemble_comparison <- obs_sumstat %>%
-  select(File, everything()) %>%
-  rename_with(~ paste0(.x, "_obs"), -File) %>%
-  inner_join(
-    ensemble_sumstat %>%
-      rename_with(~ paste0(.x, "_mod"), -File),
-    by = "File"
-  )
+make_comparison <- function(mod_sumstat){
+  mod_comparison <- obs_sumstat %>%
+    select(File, everything()) %>%
+    rename_with(~ paste0(.x, "_obs"), -File) %>%
+    inner_join(mod_sumstat %>%
+                 rename_with(~ paste0(.x, "_mod"), -File),
+               by = "File")
+  return(mod_comparison)
+}
+
+ensemble_comparison <- make_comparison(ensemble_sumstat)
+GFDL_comparison <- make_comparison(GFDLsumstat)
+IPSL_comparison <- make_comparison(IPSLsumstat)
+HADLEY_comparison <- make_comparison(HADLEYsumstat)
 
 # Summary statistics to compare
 stats <- c(
@@ -415,83 +419,138 @@ stats <- c(
 )
 
 # Run regression for each summary statistic
-regression_results <- map_dfr(stats, function(stat) {
+run_regression <- function(comparison_df) {
   
-  obs_col <- paste0(stat, "_obs")
-  mod_col <- paste0(stat, "_mod")
+  mod_run <- sub("_.*", "", deparse(substitute(comparison_df)))
   
-  dat <- ensemble_comparison %>%
-    select(File, all_of(obs_col), all_of(mod_col)) %>%
-    drop_na()
   
-  model <- lm(
-    reformulate(obs_col, response = mod_col),
-    data = dat
-  )
+  #table of regression results
+  regression_df <- map_dfr(stats, function(stat) {
+    
+    obs_col <- paste0(stat, "_obs")
+    mod_col <- paste0(mod_run,"_",stat, "_mod")
+    
+    dat <- comparison_df %>%
+      select(File, all_of(obs_col), all_of(mod_col)) %>%
+      drop_na()
+    
+    model <- lm(reformulate(obs_col, response = mod_col),
+                data = dat)
+    
+    tidy(model) %>%
+      filter(term == obs_col) %>%
+      transmute(statistic = stat,
+                n = nrow(dat),
+                slope = estimate,
+                slope_SE = std.error,
+                p_value = p.value,
+                R2 = summary(model)$r.squared)
+  })
   
-  tidy(model) %>%
-    filter(term == obs_col) %>%
-    transmute(
-      statistic = stat,
-      n = nrow(dat),
-      slope = estimate,
-      slope_SE = std.error,
-      p_value = p.value,
-      R2 = summary(model)$r.squared
-    )
-})
+  #plot data
+  plot_data <- comparison_df %>%
+    select(File, region_obs, any_of(paste0(stats, "_obs")),
+           any_of(paste0(mod_run, "_", stats, "_mod"))) %>%
+   
+    rename_with(
+      ~ sub(paste0("^", mod_run, "_"), "", .x),
+      starts_with(mod_run)
+    ) %>%
+    pivot_longer(
+      cols = -c(File,region_obs),
+      names_to = c("statistic", "type"),
+      names_pattern = "(.*)_(obs|mod)$",
+      values_to = "value"
+    ) %>%
+    pivot_wider(
+      names_from = type,
+      values_from = value
+    ) 
+  #%>% drop_na(obs, mod)
+  
+  
+  # Plot observed vs. modeled values
+  plot <- ggplot(plot_data, aes(x = obs, y = mod)) +
+    
+    # 1:1 reference line
+    geom_abline(
+      aes(linetype = "1:1 relationship"),
+      slope = 1,
+      intercept = 0,
+      color = "black"
+    ) +
+    
+    geom_point() +
+    
+    # Fitted linear regression
+    geom_smooth(
+      aes(color = "Fitted linear regression"),
+      method = "lm",
+      se = FALSE,
+      linetype = "solid"
+    ) +
+    
+    #r2 and p value for each facet
+    geom_text(
+      data = regression_df,
+      aes(
+        x = -Inf,
+        y = Inf,
+        label = paste0(
+          "R² = ", round(R2, 2),
+          "\np = ", signif(p_value, 2)
+        )
+      ),
+      inherit.aes = FALSE,
+      hjust = -0.1,
+      vjust = 1.5
+    ) +
+    
+    # Line legend
+    scale_linetype_manual(
+      name = NULL,
+      values = c("1:1 relationship" = "dotted")
+    ) +
+    
+    scale_color_manual(
+      name = NULL,
+      values = c("Fitted linear regression" = "blue")
+    ) +
+    
+    facet_wrap(
+      ~ statistic,
+      scales = "free", ncol=5
+    ) +
+    
+    labs(
+      x = "Observed",
+      y = "Modeled",
+      caption = paste(
+        "Black dotted line represents the 1:1 relationship (modeled = observed).",
+        "Blue solid line represents the fitted linear regression.",
+        "R² values indicate the proportion of variation in modeled values",
+        "explained by observed values."),
+      title = paste(mod_run,"model vs. observation")
+    ) +
+    
+    theme_classic()
+  
+  
+  
+  return(list(regression_df = regression_df, plot_data = plot_data, plot = plot))
+  
+}
 
-regression_results
 
-plot_data <- obs_sumstat %>%
-  select(File, all_of(stats)) %>%
-  rename_with(~ paste0(.x, "_obs"), -File) %>%
-  inner_join(
-    ensemble_sumstat %>%
-      select(File, all_of(stats)) %>%
-      rename_with(~ paste0(.x, "_mod"), -File),
-    by = "File"
-  ) %>%
-  pivot_longer(
-    cols = -File,
-    names_to = c("statistic", "type"),
-    names_pattern = "(.*)_(obs|mod)$",
-    values_to = "value"
-  ) %>%
-  pivot_wider(
-    names_from = type,
-    values_from = value
-  ) %>%
-  drop_na(obs, mod)
+ensemble_plot <- run_regression(ensemble_comparison)$plot
+GFDL_plot <- run_regression(GFDL_comparison)$plot
+IPSL_plot <- run_regression(IPSL_comparison)$plot
+HADLEY_plot <- run_regression(HADLEY_comparison)$plot
 
-
-ggplot(plot_data, aes(x = obs, y = mod)) +
-  
-  geom_abline(
-    slope = 1,
-    intercept = 0,
-    linetype = "dashed"
-  ) +
-  
-  geom_point() +
-  
-  geom_smooth(
-    method = "lm",
-    se = FALSE
-  ) +
-  
-  facet_wrap(
-    ~ statistic,
-    scales = "free"
-  ) +
-  
-  labs(
-    x = "Observed",
-    y = "Modeled"
-  ) +
-  
-  theme_classic()
-
+ensemble_plot
+GFDL_plot
+IPSL_plot
+HADLEY_plot
 
 
 

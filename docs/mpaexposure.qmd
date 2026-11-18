@@ -181,7 +181,8 @@ make_pca <- function(mod_sumstat){
     labs(title = paste0(model_name, " PCA - Present Day and End Century"))
   
 
-  return(list(pca = pca, scores = scores, eigenvectors = pca_eigenvectors, presentday = plot_presentday, endcen = plot_endcen))
+  return(list(pca = pca, scores = scores, eigenvectors = pca_eigenvectors, 
+              presentday = plot_presentday, endcen = plot_endcen))
 
 }
 ```
@@ -209,7 +210,8 @@ ensemble_pca$endcen
 
 ```{r}
 
-scores_wide <- ensemble_pca$scores %>%
+ensemble_scores <- ensemble_pca$scores
+scores_wide <- ensemble_scores %>%
   select("PC1","PC2") %>%
 #I think the rows correspond to each individual mpa for a certain time period, corresponds to sumstat file, need to merge this and only select pc1 since its most explanatory 
   cbind(ensemble_sumstat) %>%
@@ -377,6 +379,48 @@ PC1_mod <- lm(PC1_endcen ~ PC1_presentday, data = scores_wide)
 PC2_mod <- lm(PC2_endcen ~ PC2_presentday, data = scores_wide)
 
 
+scores_long <- scores_wide %>%
+  select(region, PC1_presentday, PC1_endcen, PC1_fitted,
+         PC2_presentday, PC2_endcen, PC2_fitted) %>%
+  pivot_longer(
+    cols = -region,
+    names_to = c("PC", ".value"),
+    names_pattern = "(PC[12])_(presentday|endcen|fitted)"
+  )
+
+ggplot(scores_long, aes(x = presentday, y = endcen)) +
+  geom_segment(
+    aes(xend = presentday, yend = fitted),
+    color = "gray60",
+    alpha = 0.6
+  ) +
+  geom_point(aes(color = region), size = 2.5) +
+  geom_smooth(
+    method = "lm",
+    se = FALSE,
+    color = "black",
+    linewidth = 1
+  ) +
+  facet_wrap(
+    ~PC,
+    scales = "free",
+    labeller = as_labeller(c(
+      PC1 = "PC1",
+      PC2 = "PC2"
+    ))
+  ) +
+  labs(
+    title = "Present-day vs. End-century PCA scores",
+    x = "Present-day PC score",
+    y = "End-century PC score",
+    color = "Region"
+  ) +
+  theme_bw() +
+  theme(
+    strip.text = element_text(face = "bold", size = 12),
+    plot.title = element_text(face = "bold")
+  )
+
 #saving residuals
 pc_residuals <- scores_wide %>% 
   
@@ -405,123 +449,85 @@ pc_residuals <- scores_wide %>%
                                                    SHORTNAME, NA),
          region = factor(region, 
                          levels = c("socal", "channel", "centralca",
-                                    "norca"))) 
+                                    "norca"))
+         ) 
 
-#summary for bar chart
-region_pc_residuals <- pc_residuals %>%
-  distinct(region, PC, region_mean, region_sd)  %>%
-  arrange(PC, region) 
+#regional comparisons for contrasts (letters on bars)
+PC1_region_mod <- lm(residual ~ region,
+                     data = filter(pc_residuals, PC == "PC1"))
 
-#CONTRASTS
-residual_mod <- lm(
-  residual ~ PC * region,
-  data = pc_residuals
-)
+PC1_contrasts <- pairs(emmeans(PC1_region_mod, ~ region),
+                       adjust = "tukey") %>% as.data.frame()
+      
+PC2_region_mod <- lm(residual ~ region,
+                     data = filter(pc_residuals, PC == "PC2"))
 
-EMM_residual <- emmeans(residual_mod, ~ PC*region)
+PC2_contrasts <- pairs(emmeans(PC2_region_mod, ~ region),
+                       adjust = "tukey")
 
+#all are signif!!
 
-
-
-region_contrast <- contrast(EMM_residual, method = "pairwise", by = "PC") %>% 
-  as.data.frame() %>%
-   mutate(p.value = ifelse(p.value < 0.01, "< 0.01", 
-                           round(p.value,3)),
-         across(c(estimate, SE, df, t.ratio),~ round(.x, 3)))
-
-flextable(region_contrast) %>% 
-  bold(i = ~ p.value < 0.01,
-        j = "p.value",
-    bold = TRUE) %>% 
-  set_caption("Regional contrasts within each PC and period") %>%
-  
-  autofit()
-
-
-
-period_contrast <- contrast(EMM_residual, method = "pairwise", by = c("PC","region")) %>% 
-  as.data.frame() %>%
-    mutate(p.value = ifelse(p.value < 0.01, "< 0.01", p.value),
-         across(c(estimate, SE, df, t.ratio),~ round(.x, 3)))
-
-flextable(period_contrast) %>% 
-  set_caption("midcen vs. endcen contrasts within each PC and region") %>%
-  autofit()
-
-
-
-#plot residuals and mean region residual for pc1 and pc2
-ggplot(pc_residuals, aes(x = region, y = residual)) +
+#plot
+p <- ggplot(pc_residuals, aes(x = region, y = residual, color = region)) +
 
   # Individual MPA residuals
-  geom_point(
-    aes(color = region),
-    position = position_jitter(width = 0.12, height = 0),
-    alpha = 0.45,
+  geom_jitter(
+    width = 0.12,
+    alpha = 0.5,
     size = 2
+  ) +
+  
+  # Label outlier MPAs
+  geom_text_repel(
+    aes(label = label),
+    na.rm = TRUE,
+    size = 3,
+    show.legend = FALSE
   ) +
 
   # Regional mean and SD
-  geom_errorbar(
-    data = region_pc_residuals,
-    aes(
-      x = region,
-      ymin = region_mean - region_sd,
-      ymax = region_mean + region_sd
-    ),
-    width = 0.15,
-    linewidth = 0.7,
-    color = "black",
-    inherit.aes = FALSE
+  stat_summary(
+    fun = mean,
+    fun.min = function(x) mean(x, na.rm = TRUE) - sd(x, na.rm = TRUE),
+    fun.max = function(x) mean(x, na.rm = TRUE) + sd(x, na.rm = TRUE),
+    geom = "errorbar",
+    width = 0.2,
+    linewidth = 0.8
   ) +
 
-  geom_point(
-    data = region_pc_residuals,
-    aes(x = region, y = region_mean),
-    shape = 23,
-    size = 3.5,
-    fill = "white",
-    color = "black",
-    inherit.aes = FALSE
+  stat_summary(
+    fun = mean,
+    geom = "point",
+    size = 4
+    
   ) +
 
-  geom_text_repel(
-    aes(label = label, color = region),
-    size = 3,
-    show.legend = FALSE,
-    max.overlaps = Inf
+  # Zero reference line
+  geom_hline(
+    yintercept = 0,
+    linetype = "dashed",
+    color = "gray50"
   ) +
-
-  geom_hline(yintercept = 0, linetype = "dashed",
-             color = "gray50") +
-
+  
   scale_color_manual(values = region_cols) +
 
-  scale_x_discrete(
-    labels = c(
-      socal = "Southern CA",
-      channel = "Channel Islands",
-      centralca = "Central CA",
-      norca = "Northern CA"
-    )
-  ) +
-
-  facet_wrap(~PC, scales = "free_y") +
+  facet_wrap(~ PC, ncol = 2) +
 
   labs(
-    x = NULL,
-    y = "PC score residual (End century vs. present-day prediction)"
+    x = "Region",
+    y = "Residual from present-day to end-century relationship",
+    caption = "Large points represent regional mean residuals; error bars represent ±1 SD; small points represent individual MPAs."
   ) +
+  
+  scale_x_discrete(
+  labels = c(
+    "socal" = "Southern CA",
+    "channel" = "Channel Islands",
+    "centralca" = "Central CA",
+    "norca" = "Northern CA"
+  )) +
 
-  theme_bw(base_size = 12) +
-  theme(
-    legend.position = "none",
-    strip.background = element_rect(fill = "gray90"),
-    strip.text = element_text(face = "bold"),
-    axis.text.x = element_text(angle = 30, hjust = 1),
-    panel.grid.major.x = element_blank(),
-    panel.grid.minor = element_blank()
-  )
+  theme_classic()
 
 ```
 
