@@ -21,7 +21,7 @@ sites <- read_csv("data/processeddata/obs_sites.csv") %>%
 #load model data at observational data sites
 load_mod <- function(mod_run){
 
-  file_paths <- list.files(path = paste0("data/rawdata/model/for_obs_comparison/surface_values/Sites_",mod_run), 
+  file_paths <- list.files(path = paste0("data/rawdata/model/for_obs_comparison/30m_avg_values/Sites_",mod_run), 
                            pattern = "\\.txt$", full.names = TRUE)
   
   mod_df <- file_paths %>% 

@@ -211,6 +211,7 @@ ensemble_pca$endcen
 ```{r}
 
 ensemble_scores <- ensemble_pca$scores
+
 scores_wide <- ensemble_scores %>%
   select("PC1","PC2") %>%
 #I think the rows correspond to each individual mpa for a certain time period, corresponds to sumstat file, need to merge this and only select pc1 since its most explanatory 
